@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="kk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111614">
+  <title>AQSHA TRACE — Ақша ізін ашыңыз</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23c1f979'/%3E%3Cpath d='M8 23 16 8l8 15M11 18h10' stroke='%23101713' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#graph" aria-label="AQSHA TRACE басты бет">
+        <span class="brand-symbol"><svg viewBox="0 0 32 32" fill="none"><path d="m7 24 9-17 9 17M11 18h10" stroke="currentColor" stroke-width="2.5"/><circle cx="16" cy="7" r="2.7" fill="currentColor"/></svg></span>
+        <span>AQSHA<span class="brand-trace">TRACE <span class="version">/ 01</span></span></span>
+      </a>
+      <div class="workspace-label">АНАЛИТИК КЕҢІСТІГІ</div>
+      <nav class="main-nav" aria-label="Негізгі мәзір">
+        <button class="nav-item active" data-view="graph" aria-label="Ақша графы" title="Ақша графы"><span data-icon="network"></span><span>Ақша графы</span><span class="nav-key">01</span></button>
+        <button class="nav-item" data-view="ranking" aria-label="Тексеру кезегі" title="Тексеру кезегі"><span data-icon="rank"></span><span>Тексеру кезегі</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-view="clusters" aria-label="Қауымдастықтар" title="Қауымдастықтар"><span data-icon="layers"></span><span>Қауымдастықтар</span></button>
+        <button class="nav-item" data-view="blindspots" aria-label="Бақылау шегі" title="Бақылау шегі"><span data-icon="scan"></span><span>Бақылау шегі</span></button>
+      </nav>
+      <div class="sidebar-divider"></div>
+      <div class="workspace-label">ҚҰРАЛДАР</div>
+      <nav class="main-nav secondary-nav" aria-label="Құралдар">
+        <button class="nav-item" id="upload-side" aria-label="Деректі жүктеу" title="Деректі жүктеу"><span data-icon="upload"></span><span>Деректі жүктеу</span></button>
+        <button class="nav-item" id="method-button" aria-label="Әдістеме" title="Әдістеме"><span data-icon="book"></span><span>Әдістеме</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="case-card"><div class="case-card-top"><span class="status-dot"></span><span id="dataset-status">ДЕМО ЗЕРТТЕУ</span></div><strong id="sidebar-node-count">— шот</strong><p>Төрт қадам. Біртұтас көрініс.</p><button id="reset-demo"><span data-icon="refresh"></span>Демоны жаңарту</button></div>
+        <div class="partner"><span class="partner-icon">F<span>↗</span></span><div><strong>Freedom challenge</strong><span>HACKALEM · 2026</span></div><span class="partner-dot"></span></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><span>Зерттеу кеңістігі</span><span class="breadcrumb-slash">/</span><strong id="breadcrumb-current">Ақша графы</strong></div>
+        <div class="topbar-actions"><span class="offline-status"><span class="status-dot"></span>Жергілікті өңдеу</span><button class="icon-button" id="help-button" aria-label="Әдістеме туралы"><span data-icon="help"></span></button><div class="avatar" title="AML аналитик">AN</div></div>
+      </header>
+
+      <div class="workspace-content">
+        <section class="page-heading">
+          <div><div class="eyebrow"><span class="eyebrow-line"></span>FOLLOW THE MONEY. FIND THE PATTERN.</div><h1 id="page-title">Ақша ізін <span>ашыңыз.</span></h1><p id="page-subtitle">Жекелеген аударымдардан — қаржы құрылымының тұтас көрінісіне.</p></div>
+          <div class="heading-actions"><button class="button button-quiet" id="export-button"><span data-icon="download"></span>Экспорт</button><button class="button button-primary" id="upload-button"><span data-icon="plus"></span>Деректі жүктеу</button></div>
+        </section>
+
+        <div class="dataset-strip"><div><span class="demo-pill" id="demo-pill"><span class="status-dot"></span>СИНТЕТИКАЛЫҚ ДЕМО</span><span id="dataset-period">Деректер дайындалуда</span></div><button id="limitations-link">Рөлдер — аналитикалық гипотеза <span data-icon="arrow-up-right"></span></button></div>
+
+        <section class="metrics-grid" id="metrics" aria-label="Зерттеу көрсеткіштері">
+          <div class="metric-card"><div class="metric-label">Желідегі шоттар<span data-icon="nodes"></span></div><div class="metric-value" id="metric-nodes">—</div><div class="metric-foot"><span class="metric-dot"></span><span id="metric-seeds">— бастапқы шот</span></div></div>
+          <div class="metric-card"><div class="metric-label">Бақыланған ағын<span data-icon="arrows"></span></div><div class="metric-value" id="metric-flow">—</div><div class="metric-foot" id="metric-transactions">— транзакция</div></div>
+          <div class="metric-card"><div class="metric-label">Қауымдастықтар<span data-icon="layers"></span></div><div class="metric-value" id="metric-clusters">—</div><div class="metric-foot">Құрылымдық топтар</div></div>
+          <div class="metric-card metric-accent"><div class="metric-label">Талдау тереңдігі<span data-icon="scan"></span></div><div class="metric-value">04<span class="metric-unit">қадам</span></div><div class="metric-foot"><span class="tiny-ring"></span><span id="metric-boundary">Шекараны ескеретін талдау</span></div></div>
+        </section>
+
+        <section id="graph-view" class="view active" aria-label="Ақша графы">
+          <div class="graph-workspace">
+            <div class="panel graph-panel">
+              <div class="panel-heading"><div class="panel-title"><span class="live-square"></span><h2>Транзакциялар желісі</h2><span class="small-pill" id="graph-count">—</span></div><button class="text-button" id="graph-fit"><span data-icon="expand"></span>Сыйғызу</button></div>
+              <div class="graph-toolbar">
+                <label class="graph-search"><span data-icon="search"></span><input id="node-search" type="search" placeholder="Шот ID бойынша іздеу" autocomplete="off" aria-label="Шот ID бойынша іздеу"><kbd>↵</kbd></label>
+                <div class="depth-control"><span>Қадам</span><div id="depth-buttons" role="group" aria-label="Граф тереңдігі"><button data-depth="1">1</button><button data-depth="2">2</button><button data-depth="3">3</button><button class="active" data-depth="4">4</button></div></div>
+              </div>
+              <div class="graph-filter-row"><select id="graph-cluster" aria-label="Графтағы қауымдастық"><option value="all">Барлық қауымдастық</option></select><select id="graph-role" aria-label="Графтағы рөл"><option value="all">Барлық рөл</option></select><button class="focus-reset hidden" id="focus-reset"><span data-icon="close"></span>Шолуға оралу</button><span class="graph-direction">Аударым бағыты <span>→</span></span></div>
+              <div class="canvas-wrap" id="canvas-wrap"><canvas id="network-canvas" aria-label="Бағытталған транзакциялар графы. Шотты іздеу арқылы немесе төмендегі кестеден де таңдауға болады."></canvas><div class="graph-watermark">AQSHA <span>TRACE</span></div><div class="graph-tooltip hidden" id="graph-tooltip"></div><div class="canvas-loading" id="canvas-loading"><span class="loading-orbit"></span><strong>Ақша байланыстары ашылуда</strong><span>Жергілікті деректерді талдап жатырмыз…</span></div><div class="graph-zoom"><button id="zoom-in" aria-label="Үлкейту">+</button><span id="zoom-value">100%</span><button id="zoom-out" aria-label="Кішірейту">−</button></div><div class="graph-interaction-hint"><span data-icon="mouse"></span>Жылжытыңыз · шотты басыңыз</div></div>
+              <div class="graph-footer"><div class="legend"><span><i class="legend-seed"></i>Бастапқы шот</span><span><i class="legend-consolidator"></i>Жинақтаушы</span><span><i class="legend-transit"></i>Транзит</span><span><i class="legend-distributor"></i>Таратушы</span><span><i style="background:#77deb1"></i>Үйлестіруші үміткері</span><span><i style="background:#e3ba79"></i>Соңғы алушы үміткері</span><span><i style="background:#738a79"></i>Шеткері</span><span><i class="legend-boundary"></i>Шекара</span></div><span id="graph-scope" class="graph-scope">Барлық шот рейтингте қолжетімді</span></div>
+            </div>
+            <aside class="panel detail-panel" id="node-detail" aria-label="Шот туралы мәлімет"><div class="empty-detail"><span data-icon="scan"></span><h3>Байланысты зерттеңіз</h3><p>Графтан шотты таңдаңыз. Оның рөлі мен дәлелдері осында ашылады.</p></div></aside>
+          </div>
+          <div class="below-graph"><div class="panel signal-panel"><div class="panel-heading"><div class="panel-title"><span data-icon="pulse"></span><h2>Ағын динамикасы</h2></div><span class="muted-small">Күндік көлем · ₸</span></div><div id="timeline" class="timeline"></div><div class="timeline-axis"><span id="timeline-start">—</span><span>Бақыланған транзакциялар</span><span id="timeline-end">—</span></div></div><div class="insight-card"><div class="insight-eyebrow"><span data-icon="spark"></span>ҚҰРЫЛЫМДЫ ТЕКСЕРУ</div><h3>Бір шотсыз желі<br>қалай өзгереді?</h3><p>Шотты таңдаңыз және оның байланыстарға ықпалын модельдеңіз.</p><button class="text-button" id="simulation-shortcut">Сценарийді ашу <span data-icon="arrow-right"></span></button></div></div>
+        </section>
+
+        <section id="ranking-view" class="view" aria-label="Тексеру кезегі"><div class="panel"><div class="panel-heading view-panel-heading"><div><div class="panel-title"><span data-icon="rank"></span><h2>Тексеруді неден бастау керек?</h2></div><p class="panel-description">Құрылымдық белгілер бойынша басымдық. Ұпай кінәні немесе ықтималдықты білдірмейді.</p></div><button class="button button-quiet button-small" data-download="top_nodes.csv"><span data-icon="download"></span>Top CSV</button></div><div class="table-toolbar"><label class="graph-search"><span data-icon="search"></span><input id="ranking-search" type="search" placeholder="Шот ID бойынша сүзгі" aria-label="Рейтингті іздеу"></label><select id="ranking-role" aria-label="Рейтинг рөлі"><option value="all">Барлық рөл</option></select><span class="muted-small" id="ranking-total"></span></div><div class="table-scroll"><table class="data-table"><thead><tr><th>РЕТІ</th><th>ШОТ</th><th>БОЛЖАМДЫ РӨЛ</th><th>БАСЫМДЫҚ</th><th>НЕГІЗДЕМЕ</th><th></th></tr></thead><tbody id="ranking-body"></tbody></table></div><div class="pagination"><span id="ranking-page-label"></span><div><button class="button button-quiet button-small" id="ranking-prev">← Алдыңғы</button><button class="button button-quiet button-small" id="ranking-next">Келесі →</button></div></div></div></section>
+
+        <section id="clusters-view" class="view" aria-label="Қауымдастықтар"><div class="section-intro"><div><h2>Байланыстар қалыптастырған топтар</h2><p>Бұл топтар — транзакциялық қауымдастықтар. Ұйымдасқан топ екенінің дәлелі емес.</p></div><button class="button button-quiet button-small" data-download="clusters.csv"><span data-icon="download"></span>Clusters CSV</button></div><div class="clusters-grid" id="clusters-grid"></div><button class="button button-quiet load-more hidden" id="clusters-more">Тағы көрсету</button></section>
+
+        <section id="blindspots-view" class="view" aria-label="Бақылау шегі"><div class="boundary-banner"><div class="boundary-icon"><span data-icon="scan"></span></div><div><h2>Дерек аяқталса, ақша ізі аяқталмайды.</h2><p>4-қадамдағы шоттан шығыс көрінбеуі оны соңғы алушы деп санауға жеткіліксіз. Келесі сұрауға негіз болатын шектерді көрсетеміз.</p></div><span class="boundary-badge">CENSORING AWARE</span></div><div class="quality-grid" id="quality-grid"></div><div class="panel"><div class="panel-heading view-panel-heading"><div><h2>Келесі дерек сұраулары</h2><p class="panel-description">Бақылау шегін кеңейту үшін қай мәлімет қажет?</p></div><span class="small-pill" id="request-count"></span></div><div class="request-list" id="request-list"></div><button class="button button-quiet load-more hidden" id="requests-more">Тағы көрсету</button></div><div id="quality-warnings" class="quality-warnings"></div></section>
+
+        <footer class="workspace-footer"><span>AQSHA TRACE <span class="footer-separator">/</span> Financial intelligence workspace</span><span>Рөл — гипотеза. Шешім — аналитикте.</span></footer>
+      </div>
+    </main>
+  </div>
+  <div class="toast hidden" role="status" id="toast"></div>
+  <dialog id="modal"><div id="modal-content"></div></dialog>
+</body>
+</html>

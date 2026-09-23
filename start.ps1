@@ -1,11 +1,18 @@
-param([int]$Port = 8501)
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
-$taskPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
-if (-not (Test-Path -LiteralPath $taskPython)) {
-    Write-Error 'Virtual environment is missing. Run setup.ps1 first.'
-    exit 1
+$venvPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
+$bundledPython = Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+$pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+if (Test-Path -LiteralPath $venvPython) {
+    $launcher = $venvPython
+} elseif ($pythonCommand) {
+    $launcher = $pythonCommand.Source
+} elseif (Test-Path -LiteralPath $bundledPython) {
+    $launcher = $bundledPython
+} else {
+    throw 'Python 3.12 is required. Follow the installation steps in README.md.'
 }
-& $taskPython -m streamlit run app.py --server.address 127.0.0.1 --server.port $Port --server.headless true
+$challengeReady = @('nodes.parquet', 'edges.parquet', 'transactions.parquet') | ForEach-Object { Test-Path -LiteralPath (Join-Path $PSScriptRoot ('data\challenge\' + $_)) }
+$launchArgs = if ($args.Count -gt 0) { $args } elseif ($challengeReady -notcontains $false) { @('--data', 'data/challenge', '--output', 'output/challenge', '--serve') } else { @('--demo', '--serve') }
+& $launcher (Join-Path $PSScriptRoot 'run.py') @launchArgs
 exit $LASTEXITCODE
-
