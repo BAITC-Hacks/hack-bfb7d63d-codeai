@@ -184,16 +184,263 @@ the browser; CSV identifiers retain their integer decimal representation.
 Output artifacts are staged before replacement and JSON rejects NaN/Infinity.
 Runtime metadata excludes final disk serialization. Apart from timestamps and
 runtime, identical input data and dependency versions produce identical output.
+`meta.dataset_fingerprint` hashes each sorted input name followed by its exact
+Parquet file bytes with SHA-256. The fingerprint ties saved investigation data
+to that source snapshot, independently of role predictions. Re-encoding a
+Parquet file can change this fingerprint even if its logical rows are unchanged.
 
 Data requests follow the observed gap: expand depth-four outflow; recover seed
 inbound and prior balances; inspect prior inflow when outflow exceeds observed
 inflow; extend dates and remove low-value filters for apparently isolated or
 receiving-only accounts. These are requests, not fabricated observations.
 
+## Additional investigative patterns
+
+The `insights` extension leaves all original role/priority formulas and the
+three CSV schemas unchanged. It adds inspectable hypotheses, not training
+labels or a calibrated fraud model. Every event contains participating GIDs,
+an observed date when applicable, numeric evidence and threshold metrics.
+
+| Pattern | Rule |
+|---|---|
+| Activity spike | At least 7 calendar days and 3 active days; the candidate day has at least 3 transfers and 100,000 KZT, at least 4 times the mean of all other days including zero days, and at least 40% of the period's volume in that direction. This is retrospective, not a live forecast. |
+| Same-day payers | At least 4 distinct non-self payers to one recipient on the same UTC day. It does not establish second-level synchrony or coordination. |
+| Fast forwarding | Non-seed with positive observed inflow/outflow and outflow no greater than inflow; at least 3 incoming transfers; FIFO daily volume overlap in a 0–2 day window reaches 80% of observed inflow. The original 0–1 day role/priority feature remains unchanged. |
+| Possible splitting | At least 4 transfers in one day within one directed pair or from one sender to multiple recipients; maximum/minimum amount <=1.10 and population coefficient of variation <=0.10. No reporting threshold or intent to evade one is inferred. |
+| Peer outlier | Compare within the same extraction depth, minimum cohort 8 including inactive nodes. Volume or unique counterparties must strictly exceed max(Q3+3×IQR,3×median,50,000 KZT or 5 counterparties). |
+| Organizer candidate | Summarize existing coordinator-role evidence, counterparties, centrality and external-community links. It cannot identify an owner or establish organizational control. |
+
+Simple directed cycles of 2–4 edges are deduplicated by rotation. They are
+structural patterns: their edges need not have occurred in a chronological
+round trip. Summed edge turnover is not the amount of money returned.
+
+Repeated routes are simple paths of 2–3 edges, each observed on at least two
+dates. A route needs at least two matched sequences with nondecreasing days,
+0–2 days between hops and at most 4 days end-to-end. Greedy matches do not reuse
+an edge-day observation inside one route. Separate routes may share evidence;
+counts are descriptive and do not claim a maximum matching. Same-day order
+and identity of the funds remain unknown.
+
+Search is deterministic and bounded: 25,000 cycle candidate expansions,
+50,000 route candidate expansions, 128 starting dates per route and 12 stored
+occurrences. Up to 60 cycles, 80 routes and 240 events are retained, with at
+most 40 strongest events per kind. `insights.limits` includes counts and
+separate search/storage truncation flags. Search traverses sorted numeric
+GIDs; hitting a search cap may omit later IDs. A missing retained motif is
+not proof of its absence. Methodology strings and limits also travel with
+the exported JSON.
+
+## Replay, assistant, reports and removal experiments
+
+`replay` contains exact daily directed-pair aggregates and a calendar. Empty
+days are included for periods up to 3,660 days; longer extracts retain at most
+the first 3,660 observed dates and set `replay_calendar_truncated`. Pair/day
+records remain available in the JSON. The interface can display
+one day's edges or accumulated edges through that day. Replay does not alter
+the period-wide node roles or priority scores. Animated direction markers
+are not individual transfers or within-day timestamps.
+
+TOP-N simulation removes the original ranking's prefixes from an unchanged
+observed graph. Each curve point recalculates weak components, largest
+component, directed seed reachability and incident observed flow. Incident
+edges are counted once even when both endpoints are removed. The count of
+surviving nodes losing seed reachability need not increase monotonically,
+because later steps may remove those nodes themselves. This experiment does
+not execute blocking or estimate frozen funds. A separate recovery scenario
+uses explicit assumptions, described below; it does not predict adaptation.
+
+The default offline assistant recognizes supported question intents and
+retrieves facts from the current analysis. This mode is explicitly labelled
+as rule-based, preserves exact GIDs in citations and declines unsupported
+facts. Optional local language-model inference is a separate mode described
+below. PDF summaries and node reports use stored evidence and carry
+limitations and next-data requests. PDF generation uses ReportLab and a
+redistributable embedded DejaVu font.
+
+## Explicit supplementary-data overlays
+
+`moneygraph.expansion.expand_analysis` adds only supplied supplementary
+transaction records to a separate observed graph. It requires the caller's
+explicit `incremental_disjoint:true` declaration. The original extract lacks
+transaction IDs, so an aggregate pair/day amount cannot establish whether a
+new record is the same payment. The tool neither deduplicates uncertain base
+overlap nor asserts that the declaration has been verified. It reports the
+number of accepted records sharing a previously observed pair/day and carries
+this limitation with the result.
+
+Supplementary record identity is `(source_reference,transaction_id)`.
+Identical records with that key are counted as duplicate submissions;
+different contents under the same key reject the complete request. The
+normalized ledger survives JSON persistence, making reuploads idempotent.
+Different source references form separate ID namespaces, so cross-source
+duplication still requires the data supplier's review. ISO timestamps become
+UTC; full normalized timestamps remain in the ledger while replay aggregates
+by UTC day. Amounts are positive finite values; supplied below-threshold and
+later-period records can extend what the original filtered extract observed.
+The batch and accumulated limits are 50,000 and 200,000 records respectively.
+
+The overlay recomputes degrees, observed amounts, transfer counts, timelines
+and shortest directed distance from known seeds over the combined observed
+edges. It can reveal paths beyond four hops because those additional edges
+were supplied, not because the algorithm inferred unseen transactions.
+An unreachable node has null observed seed distance. Original extraction
+depths are preserved for original nodes; a new node's depth is its observed
+distance when reachable. New accounts are never silently made seeds.
+
+Existing role/priority/community information is retained with
+`role_scope:"base_snapshot"` and an original `base_metrics` snapshot. It has
+not been recomputed from the overlay. New accounts are `unclassified`, with
+`role_assigned:false`, null role/priority scores and no assigned community.
+Every overlay node states `analysis_status:"not_reanalyzed"`; pass-through is
+left null. The official source files and three CSV exports remain unchanged.
+Comparison counters distinguish this batch's additions, current totals and
+the original base totals. The overlay is separate from hypothetical recovery
+edges and from analyst assertions about control or ownership.
+
+## Deeper exploration with finite scope
+
+`moneygraph.exploration.explore_paths` searches a selected observed base or
+expanded graph. It does not alter the four-hop source extract or the fixed
+batch detector settings. Directed simple paths and start-anchored cycles use
+sorted numeric GIDs and deterministic depth-first traversal. Enumeration is
+limited to 1–12 edges, 1–100 returned routes per request and 1–100,000 examined
+edge extensions per request. Without a requested end, nonempty eligible path
+prefixes are results. A cycle returns to its requested start, which may be a
+seed; self-transfers can produce one-edge cycles.
+
+When a page or work limit interrupts traversal, the response includes an
+authenticated continuation containing the DFS stack and cumulative counters.
+The cursor is bound to graph contents and start/end/kind/hop scope; tampering,
+a changed graph or a changed scope rejects it. Page size and work budget can
+change between requests. Cursors expire when the server process restarts.
+No background search is retained: a user pauses by stopping requests and can
+resume with the cursor while that process and graph remain available.
+
+`complete_within_scope` becomes true only when the traversal stack is
+exhausted. This establishes completeness for that finite observed graph and
+search definition, not an exhaustive view of all real-world routes. Results
+are traversal-order pages, not an amount-ranked list. Many pages may be
+required for dense graphs; reaching a computational bound is not evidence
+that a route is absent.
+
+An explicit shortest-path request instead uses exact unweighted directed
+bidirectional BFS. Its output may exceed 12 hops; enumeration work/hop caps
+do not apply and the response says so. A start equal to its end has a
+zero-edge shortest path. A disconnected result means no directed path in the
+provided graph, not no economic connection outside the extract.
+
+Each returned edge is an existing directed edge. Reported route volume is
+the sum of its edges' observed period amounts, not a conserved amount of
+money flowing from first to last account. This exploration makes no temporal
+ordering claim. It differs from the short repeated daily-route detector,
+whose day-matching rules are described above.
+
+## Analyst review, evidence references and evaluation
+
+`moneygraph.review` keeps analyst assertions separate from predictions.
+Reviews have a known base GID, status (`unreviewed`, `in_review`, `supported`
+or `rejected`), reviewer, source reference, notes and optional supplied role.
+Finalized reviews require source references. A supported supplied label must
+match the reviewed prediction; a rejected supplied label must differ. An
+explicit null supplied role removes the label. The role and score produced
+by the pipeline are never overwritten by this workflow.
+
+Evidence records accept `ownership`, `control`, `transaction` or `other`,
+with a source reference, analyst-written summary and known related GIDs.
+References are not fetched, document contents are not checked and no owner
+identity or organizational control is inferred. `verification:"analyst_asserted"`
+states exactly what has been established: an analyst submitted the assertion.
+It is not independent verification or a judicial finding.
+
+The casebook is bound to the dataset fingerprint. Optional expected revisions
+reject stale updates; revision history retains previous and current records.
+Persistence uses atomic local replacement, but the audit record is not
+tamper-proof or a cryptographically signed chain of custody. CSV label
+templates contain blank labels rather than copying predictions. Imports
+reject unknown/duplicate GIDs, partial labels and missing reviewer/source
+references. No supplied labels means no invented evaluation result.
+
+With explicit supplied labels, evaluation compares the current fixed role
+predictions on that labelled subset:
+
+- Confusion matrix rows are supplied roles; columns are predicted roles.
+- Accuracy is matching labels divided by evaluated labels. Coverage is
+  evaluated labels divided by all base nodes.
+- Precision is TP / predicted class count; recall is TP / supplied class
+  support; F1 is 2TP / (support + predicted count). Undefined divisions are
+  null. Macro F1 averages only classes with supplied label support.
+- The majority-label baseline is calculated on the same evaluated subset.
+  It is descriptive, not an independent benchmark.
+
+This is not a held-out evaluation: `held_out_status` and label independence
+are unknown, training count is zero and no model is retrained. If the labels
+were influenced by the predictions or chosen thresholds, agreement does not
+establish independent validation. Selection bias, class coverage and analyst
+disagreement remain material limitations. A high subset score cannot become
+a claim about real-world detection accuracy or guilt probabilities.
+
+## Assumed network recovery after removal
+
+`moneygraph.recovery.recovery_scenario` is separate from observed expansion.
+After explicit-GID or top-N removal, the caller sets a replacement fraction
+from zero to one. Incident observed edges are sorted by descending historical
+amount, then exact source/destination GID. The first
+`floor(incident_edge_count * fraction)` are restored through explicitly
+synthetic replacement nodes for removed accounts. It is a deterministic
+sensitivity scenario, not a learned adversary or a prediction of behavior.
+
+Synthetic replacement IDs use a `hypothetical-` prefix and never enter the
+observed graph. A replacement for a removed seed is assumed to retain seed
+function. At fraction one, even removed isolated accounts receive replacement
+nodes; partial scenarios introduce only replacements needed by selected
+edges. Fraction zero restores nothing. Selected-edge fraction may differ
+from the requested fraction because of rounding, and both are returned.
+
+Outputs compare baseline, post-removal and assumed-recovery connectivity.
+Reconnected survivors are original surviving nodes newly reachable from
+surviving/assumed replacement seeds. Historical edge amounts are reference
+turnover only; no new transfer amount, timing, success probability or actual
+restoration is predicted. The supplied fraction is an assumption, not a
+parameter estimated from the transaction extract.
+
+## Optional local language-model explanation
+
+The default assistant remains deterministic rules. Optional `local_llm` mode
+runs actual inference through a separate OpenAI-compatible server restricted
+to HTTP loopback. This is a local protocol connection, not a cloud API call.
+Model weights/runtime must be installed and started separately; the core
+analysis works without them. There is no model training, fine-tuning or
+automatic adjustment of AML thresholds.
+
+The model receives a bounded evidence pack: network counts/period and up to
+four explicit/selected accounts, or four highest-priority accounts when none
+are specified. The pack contains observed amounts/counterparty counts,
+existing role hypotheses, priority, stored evidence and next-data requests.
+It does not contain the full transaction ledger, referenced documents or
+external identity information. Prompts treat evidence values as data, not
+instructions, and ask the model to use only that evidence.
+
+The response must fit a JSON structure and bounded answer/reference lengths.
+Unknown reference tokens, unknown long account numbers and truncated model
+responses are rejected. Citations resolve to exact known IDs. These checks
+validate reference membership and response structure; they do not verify
+every statement, number, causal inference or language choice in generated
+prose. An analyst must compare generated text with cited observations.
+Generation can vary between identical requests; the batch pipeline's
+determinism claim does not extend to language-model wording.
+
+Recognized requests for unavailable identities, actual organizers, guilt,
+balances or real-world accuracy are answered by a deterministic data-limit
+guard. Such responses explicitly use `mode:"local_rules_guard"`, `guarded:true`
+and no model identifier, rather than claiming model generation. Model
+unavailability, concurrent inference or invalid generated output is reported
+as unavailable; the interface can separately select the working rules mode.
+
 ## Limits and validation scope
 
-With no labelled real dataset, precision, recall, false-positive rate, and
-probability calibration cannot be established. Synthetic tests establish
+Without supplied labels, real-data precision/recall and accuracy are
+unavailable; probability calibration and real-world accuracy are not
+established by the optional subset agreement described above. Synthetic tests establish
 schema handling, arithmetic consistency, determinism, coverage of isolated
 nodes, censoring behavior, score bounds, and reproducible graph outputs only.
 Louvain can be sensitive to weight distribution and the chosen resolution;

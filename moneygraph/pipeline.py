@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict, deque
 from datetime import date, datetime, timezone
 import json
+import hashlib
 import math
 import os
 from pathlib import Path
@@ -550,6 +551,14 @@ def analyze(data_dir: str | Path, output_dir: str | Path, *, demo: bool = False)
                     "outflow_exceeds_inflow": sum("outflow_exceeds_observed_inflow" in n["flags"] for n in node_results),
                     "weak_components": nx.number_weakly_connected_components(graph), "requests": requests},
     }
+    from .insights import enrich_analysis
+    enrich_analysis(analysis, transactions)
+    source_hash = hashlib.sha256()
+    for name in sorted(SCHEMAS):
+        source_hash.update(name.encode("ascii"))
+        source_hash.update((Path(data_dir) / f"{name}.parquet").read_bytes())
+    analysis["meta"]["dataset_fingerprint"] = source_hash.hexdigest()
+    analysis["meta"]["runtime_seconds"] = round(time.perf_counter() - started, 6)
     wire_analysis = _json_safe_ids(analysis)
     _write_outputs(Path(output_dir), analysis, wire_analysis)
     return wire_analysis

@@ -14,5 +14,9 @@ if (Test-Path -LiteralPath $venvPython) {
 }
 $challengeReady = @('nodes.parquet', 'edges.parquet', 'transactions.parquet') | ForEach-Object { Test-Path -LiteralPath (Join-Path $PSScriptRoot ('data\challenge\' + $_)) }
 $launchArgs = if ($args.Count -gt 0) { $args } elseif ($challengeReady -notcontains $false) { @('--data', 'data/challenge', '--output', 'output/challenge', '--serve') } else { @('--demo', '--serve') }
+if (($launchArgs -contains '--serve') -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot '.local/model-manifest.json'))) {
+    try { & (Join-Path $PSScriptRoot 'start-local-model.ps1') }
+    catch { Write-Warning ('Optional local model: ' + $_.Exception.Message) }
+}
 & $launcher (Join-Path $PSScriptRoot 'run.py') @launchArgs
 exit $LASTEXITCODE

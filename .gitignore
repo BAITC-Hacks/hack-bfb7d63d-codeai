@@ -1,6 +1,8 @@
 .venv/
 .deps/
 .build-temp/
+.local/
+data/investigations/
 __pycache__/
 *.py[cod]
 .pytest_cache/

@@ -4,7 +4,95 @@ Executed locally on 2026-09-23 using Python 3.12, pandas 3.0.1, NumPy 2.3.5,
 PyArrow 21.0.0 and NetworkX 3.5. The organizer dataset was supplied after the
 initial synthetic validation and has now also been processed and reconciled.
 
-## Automated checks
+## Investigation lab and local model verification, 2026-09-23
+
+**107 tests passed**, 9.376 seconds, in a separate source copy using the
+isolated Python environment above. Full official-data CLI wall time was
+**3.425 seconds**, including process startup and artifact writes, for
+2,248 nodes / 3,119 edges / 4,840 transfers. The recorded run is
+`.build-temp/clean-check-e92f9eec24/verification.json` on this workstation.
+The supplied dataset still has no verified role labels, so no case accuracy
+is reported. All added evaluation assertions use explicitly synthetic tests.
+
+New coverage includes evidence/audit persistence, dataset isolation, stale
+revisions, atomic label imports, confusion metrics and null missing metrics;
+source-scoped supplementary deduplication/conflicts and exact large IDs;
+strict dates/finite amounts, neutral new-node roles, preserved original
+predictions; resumable paths/cycles, forged/stale cursors and exact 21-hop
+shortest paths; recovery at 0%/100% including isolated seeds; loopback model
+configuration, unavailable/malformed responses, citation checks and the
+deterministic missing-identity guard and unsupported-number fallback. Eight HTTP tests exercise these routes
+with isolated temporary storage, including rejection of writes from a stale dataset page.
+
+Browser QA used a separate synthetic server/storage on port 8767 for writes.
+A review was saved, two synthetic labels imported (one match, one mismatch:
+50% agreement, 0.9% coverage), and one documented 1,000 KZT transfer added.
+The overlay showed 215 nodes/384 edges while the base remained 214/383.
+The new 19-digit GID opened a card with no assigned role and a source reference;
+the expanded-scope shortest path reached it. Official-data read-only checks
+covered six-hop paths with continuation and a TOP-5 25% recovery scenario.
+The lab fit a 390px viewport without horizontal page overflow.
+
+Qwen3-1.7B Q8_0 and llama.cpp b10964 were downloaded from official sources
+and SHA-256 verified. Actual CPU inference returned a Kazakh explanation
+with an exact existing account citation; a cold larger request took about
+31 seconds. The initial small-model outputs showed weak language and
+unsupported claims, so the prompt was tightened and missing identity/guilt
+requests receive an explicitly labeled deterministic guard. This is not
+a model-quality benchmark: small-model wording/factual errors remain possible,
+and valid references do not certify the generated text. The model uses only
+loopback HTTP; private artifacts and its local key are ignored by Git.
+
+The CI matrix for Windows, Ubuntu and macOS is configured, but was not run
+remotely in this task. The automatic model installer targets Windows x64.
+JavaScript syntax and Git whitespace checks pass.
+
+## Expanded feature verification, 2026-09-23
+
+**51 tests passed** in a fresh isolated Python 3.12 virtual environment,
+installed from the pinned requirements using PyPI. `scripts/verify_clean.py`
+copied source, assets and tests into a separate directory without `.deps`,
+cleared inherited Python import overrides, verified all five runtime libraries
+loaded from that venv, and executed the tests and official-data CLI there.
+The full CLI, including process startup and artifact writing, took **2.637 s**
+for 2,248 nodes / 3,119 directed pairs / 4,840 transfers. Analysis metadata
+was 1.408 s and excludes serialization. This verifies an isolated environment
+on this Windows host, not a separate clean operating system or other hardware.
+
+The 28 added tests cover bounded positive/negative pattern detection, correct
+date ordering and no edge-day reuse, peer cohorts, exact daily conservation,
+large nested GIDs, empty/long-period inputs, multilingual grounded responses,
+unknown IDs, unsupported identity questions, PDF bytes/Unicode/dates/font
+license/page wrapping, HTTP integration and every-prefix removal curves.
+Production requirements add ReportLab 4.4.9; test requirements add pypdf 6.10.0.
+
+Official-data patterns retained: 135 events (315 detected), 60 cycles (167
+found before the cycle search cap), and 80 routes (155 found; route search did
+not hit its candidate cap). These are heuristic observations, not confirmed
+offences or an exhaustive list. All truncation is exported and shown in the UI.
+The original CSV schemas, role decisions and scores remain unchanged.
+
+The full TOP-20 removal experiment produced 21 points in approximately
+0.385 s. It removed 20 nodes, leaving 2,228 nodes / 2,225 edges and 1,123
+seed-reachable nodes; 1,105 surviving nodes lost seed reachability. This is
+structural reachability, not frozen money or a prediction of group rebuilding.
+
+Browser checks on the organizer data covered event/route filters, highlighted
+paths, all 2,248 nodes, daily/cumulative replay and period reset, TOP-20 results
+and curve, assistant answers and exact-ID citation navigation, expanded node
+metrics/next request, a real PDF download and all five investigation steps.
+For example July 16 displays 224 transfers; cumulative through July 16 shows
+2,511. The mobile 390px viewport showed no horizontal page overflow in the
+insights and simulation views, and long IDs wrapped inside cards.
+
+PDF QA rendered and inspected every page of a six-page summary and five-page
+node report. Kazakh/Cyrillic text and 18-digit IDs extract correctly; no clipped
+text or overlapping table rows were observed. The font is bundled unchanged
+with its redistribution license. JavaScript syntax and Git whitespace checks
+pass. These checks establish functioning software and arithmetic, not the
+real-world correctness of assigned roles.
+
+## Initial baseline checks (before the expanded features)
 
 `python -m unittest discover -s tests -v`: **23 tests passed**.
 

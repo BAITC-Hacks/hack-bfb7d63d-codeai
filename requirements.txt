@@ -2,3 +2,4 @@ pandas==3.0.1
 numpy==2.3.5
 pyarrow==21.0.0
 networkx==3.5
+reportlab==4.4.9
