@@ -56,6 +56,13 @@ CLIENT_FIELDS = (
     ("mean_next_out_days", "Кейінгі шығысқа дейінгі шартты орташа күн", "күн"),
     ("next_out_1_2d_share", "Кейінгі 1–2 күнде шығыс байқалған кірістер үлесі", "үлес"),
     ("temporal_eligible_in_tx", "Уақыттық үлестің кіріс операциялар саны", "операция"),
+    ("first_in_date", "Алғашқы кіріс күні", ""),
+    ("last_in_date", "Соңғы кіріс күні", ""),
+    ("first_out_date", "Алғашқы шығыс күні", ""),
+    ("last_out_date", "Соңғы шығыс күні", ""),
+    ("temporal_contradiction", "Барлық шығыс алғашқы кірістен бұрын болған", ""),
+    ("temporal_order_status", "Күндер бойынша бақылау мәртебесі", ""),
+    ("transit_excluded_by_time", "Қатынас сай, бірақ уақыт бойынша transit алынып тасталған", ""),
     ("priority_consolidation", "Басымдық үлесі: жинақталу", "ұпай"),
     ("priority_in_kzt", "Басымдық үлесі: кіріс сомасы", "ұпай"),
     ("priority_in_deg", "Басымдық үлесі: жіберушілер", "ұпай"),
@@ -64,6 +71,54 @@ CLIENT_FIELDS = (
     ("priority_out_deg", "Басымдық үлесі: алушылар", "ұпай"),
     ("priority_pagerank", "Басымдық үлесі: PageRank", "ұпай"),
 )
+
+PRIORITY_LABELS = {
+    "consolidation": "жинақталу", "in_kzt": "кіріс сомасы", "in_deg": "жіберушілер",
+    "betweenness": "аралық орталықтық", "seed_reach": "seed-тен жету",
+    "out_deg": "алушылар", "pagerank": "PageRank",
+}
+
+
+def _executed_rule(row, roles) -> str:
+    """Describe the actual configured gate using trusted code and computed values."""
+    rules = roles.config["rules"]
+    if row["is_isolated"]:
+        return "Бақыланған байланыс жоқ → peripheral; басқа рөлге дерек жеткіліксіз."
+    if row.get("self_loop_only", False):
+        return "Тек өзіне аударым бар → peripheral; сыртқы байланыс белгісі жоқ."
+    if row["depth"] == 4:
+        return "depth=4 → peripheral; әрі қарайғы шығыс бақыланбаған."
+    role = row["role"]
+    observed = f"depth={row['depth']} < 4; оқшау емес; "
+    if role == "coordinator":
+        cutoff = roles.summary["thresholds"]["coordinator_betweenness_cutoff"]
+        return observed + (
+            f"жіберуші {row['in_deg']} ≥ {rules['coordinator_min_in_deg']}; "
+            f"алушы {row['out_deg']} ≥ {rules['coordinator_min_out_deg']}; "
+            f"seed-тен жету {row['reachable_seed_count']} ≥ {rules['coordinator_min_seed_reach']}; "
+            f"betweenness={row['betweenness']} > 0 және ≥ {cutoff} "
+            f"(оң мәндер квантилі {rules['coordinator_betweenness_quantile']})."
+        )
+    if role == "distributor":
+        return observed + f"алушы {row['out_deg']} ≥ {rules['distributor_min_out_deg']}."
+    ratio = row["observed_flow_ratio"]
+    if role == "consolidator":
+        return observed + (
+            f"қатынас жарамды; жіберуші {row['in_deg']} ≥ {rules['consolidator_min_in_deg']}; "
+            f"шығыс/кіріс {ratio} ≤ {rules['consolidator_max_ratio']}."
+        )
+    if role == "transit":
+        return observed + (
+            f"қатынас жарамды; жіберуші {row['in_deg']} ≥ 1; алушы {row['out_deg']} ≥ 1; "
+            f"{rules['transit_min_ratio']} ≤ шығыс/кіріс {ratio} ≤ {rules['transit_max_ratio']}; "
+            "барлық шығыс алғашқы кірістен бұрын болғаны байқалмаған."
+        )
+    if role == "terminal":
+        return observed + f"қатынас жарамды; кіріс {row['in_kzt']} > 0; шығыс көрші {row['out_deg']} = 0."
+    reason = "Seed кірісі толық емес: қатынасқа негізделген ережелер қолданылмайды. " if row["is_seed"] else ""
+    if row.get("temporal_contradiction", False):
+        reason += "Барлық шығыс алғашқы кірістен бұрын: transit ережесі қабылданбайды. "
+    return observed + reason + "Алдыңғы рөл ережелері орындалмаған → peripheral."
 
 
 @dataclass
@@ -172,9 +227,19 @@ def build_evidence(
         facts.append({"id": f"F{len(facts) + 1:03d}", "label": label, "value": _scalar(value), "unit": unit, "source": source})
 
     def node_fact(client, key, label, unit=""):
-        source = "roles." + key if key in ("role", "role_score", "cluster_id", "priority_score") or key.startswith("priority_") else "graph." + key
+        source = "roles." + key if key in ("role", "role_score", "cluster_id", "priority_score", "transit_excluded_by_time") or key.startswith("priority_") else "graph." + key
         value = ROLE_LABELS[rows[client]["role"]] if key == "role" else rows[client][key]
         add(f"{alias(client)} · {label}", value, unit, source)
+
+    def rule_fact(client):
+        add(f"{alias(client)} · Орындалған рөл ережесі", _executed_rule(rows[client], roles), "", "roles.executed_rule")
+
+    def priority_fact(client):
+        # A scalar fact retains every actual contribution while top-10 stays
+        # within the 100-fact contract. These are values, not model deductions.
+        parts = [f"{label}={rows[client]['priority_' + key]} (салмақ {roles.config['priority']['weights'][key]})"
+                 for key, label in PRIORITY_LABELS.items()]
+        add(f"{alias(client)} · Басымдықтың жеті үлесі", "; ".join(parts), "", "roles.contribution_breakdown")
 
     def ranked(members):
         return sorted(members, key=lambda client: (-float(rows[client]["priority_score"]), -float(rows[client]["in_kzt"]), client))
@@ -184,9 +249,11 @@ def build_evidence(
         for key, label, unit in (
             ("role", "Рөл болжамы", ""), ("priority_score", "Тексеру басымдығы", "ұпай"),
             ("in_kzt", "Кіріс сомасы", "₸"), ("in_deg", "Бірегей жіберушілер", "клиент"),
-            ("out_deg", "Бірегей алушылар", "клиент"), ("depth", "Буын", "қадам"), ("is_seed", "Бастапқы клиент", ""),
+            ("depth", "Буын", "қадам"), ("is_seed", "Бастапқы клиент", ""),
         ):
             node_fact(client, key, label, unit)
+        rule_fact(client)
+        priority_fact(client)
 
     for key, label, unit in (
         ("nodes", "Бақыланған клиенттер", "клиент"), ("edges", "Бағытталған байланыстар", "байланыс"),
@@ -203,7 +270,9 @@ def build_evidence(
         title = f"{alias(client)} клиентінің " + ("түсіндірмесі" if task == "explain_client" else "аналитикалық есебі")
         node_fact(client, "role", "Рөл болжамы")
         for key, label, unit in CLIENT_FIELDS:
-            node_fact(client, key, label, unit)
+            if key in rows[client]:
+                node_fact(client, key, label, unit)
+        rule_fact(client)
         warnings.append("Уақыттық үлеске соңғы екі күннің кірістері кірмейді; сол күнгі аударым реті анықталмайды. Орташа күн тек кейінгі шығысы байқалған кірістерге шартты есептеледі.")
         if rows[client]["is_isolated"]:
             warnings.append(f"{alias(client)}: бақыланған аударым жоқ; бұл қауіпсіздік туралы қорытынды емес.")
@@ -283,6 +352,8 @@ def build_evidence(
 
 def local_report(bundle: EvidenceBundle) -> str:
     """Readable deterministic report; alias resolution stays on this computer."""
+    if bundle.task == "report_client":
+        return analyst_note(bundle)
     lines = ["Жергілікті есеп · AI қолданылған жоқ", "", bundle.title, ""]
     if bundle.aliases:
         lines += ["Клиенттердің жергілікті сәйкестігі:"]
@@ -304,4 +375,61 @@ def local_report(bundle: EvidenceBundle) -> str:
         lines.append(f"[{fact['id']}] {fact['label']}: {display}{suffix}.")
     lines += ["", "Талдаудың шектеулері:"]
     lines += [f"- {warning}" for warning in bundle.warnings]
+    return "\n".join(lines)
+
+
+def _fact_line(fact: dict) -> str:
+    value = fact["value"]
+    if value is None:
+        display = "дерек жеткіліксіз"
+    elif isinstance(value, bool):
+        display = "иә" if value else "жоқ"
+    elif isinstance(value, float):
+        display = str(int(value)) if value.is_integer() else repr(value)
+    else:
+        display = str(value)
+    unit = f" {fact['unit']}" if fact["unit"] else ""
+    return f"[{fact['id']}] {fact['label']}: {display}{unit}."
+
+
+def analyst_note(bundle: EvidenceBundle) -> str:
+    """Concise, reproducible analyst note and specific next data request.
+
+    The content is selected from the same evidence bundle as the detailed view.
+    No free-form model text is needed for the analyst's primary report.
+    """
+    facts = {fact["source"]: fact for fact in bundle.facts}
+
+    def value(source):
+        return facts.get(source, {}).get("value")
+
+    lines = ["Жергілікті есеп · AI қолданылған жоқ", "", "Талдаушыға қысқа анықтама"]
+    lines.extend(f"{alias} → gid {gid}" for alias, gid in bundle.aliases.items())
+    start, end = value("dataset.min_date"), value("dataset.max_date")
+    lines += [f"Бақылау кезеңі: {start or 'анықталмаған'} — {end or 'анықталмаған'}.", "", "Бақыланған жағдай:"]
+    for source in ("roles.role", "roles.priority_score", "graph.in_kzt", "graph.out_kzt", "graph.in_deg", "graph.out_deg"):
+        if source in facts:
+            lines.append(_fact_line(facts[source]))
+    lines += ["", "Рөлдің нақты негізі:"]
+    if "roles.executed_rule" in facts:
+        lines.append(_fact_line(facts["roles.executed_rule"]))
+    contributions = [fact for fact in bundle.facts if fact["source"] in {"roles.priority_" + key for key in PRIORITY_LABELS}]
+    strongest = sorted(contributions, key=lambda fact: -float(fact["value"]))[:3]
+    lines += ["", "Басымдыққа ең көп әсер еткен белгілер:"]
+    lines.extend(_fact_line(fact) for fact in strongest if fact["value"] > 0)
+    if not any(fact["value"] > 0 for fact in strongest):
+        lines.append("Бақыланған салмақталған белгілер нөлге тең; бұл қауіпсіздік қорытындысы емес.")
+    if value("graph.is_isolated"):
+        action = "Осы gid үшін кезеңдегі операциялар қамтылуын және seed тізіміне енгізу негізін тексеріңіз; байланыссыз жазбаны өшірмеңіз."
+    elif value("graph.truncated_by_depth"):
+        action = "Осы клиенттен әрі қарайғы шығыс операцияларын келесі буынға дейін сұратыңыз; қазіргі үзіндімен соңғы алушы деп шешпеңіз."
+    elif value("graph.temporal_contradiction"):
+        action = "Алғашқы кіріс пен соңғы шығыс күндерін операциялармен салыстырыңыз; ертерек кезеңдегі кірістерді сұратыңыз. Бұл айдың кірісі ертерек шығысқа себеп болған деп есептемеңіз."
+    elif value("graph.is_seed"):
+        action = "Seed клиентінің осы және алдыңғы кезеңдегі толық кіріс операцияларын сұратыңыз; көрінетін шығыс/кірісті шот балансы ретінде қолданбаңыз."
+    elif value("graph.out_deg") == 0:
+        action = "Осы кезеңнен кейінгі және үзіндіге кірмеген шығыс операцияларын сұратыңыз; шығыс байқалмағаны қаражат толық сақталды дегенді білдірмейді."
+    else:
+        action = "Картадағы тікелей кіріс/шығыс байланыстарын ашып, бастапқы операциялардың күндері мен сомаларын салыстырыңыз; нақты реттілік керек болса сағат/минут дерегін сұратыңыз."
+    lines += ["", "Талдаушының келесі қадамы:", action, "", "Шектеу: рөл мен басымдық — тексеру гипотезасы. Бір банк пен бір кезеңнің үзіндісі толық қаржылық көріністі бермейді; байланыс дәл сол қаражаттың қозғалысын дәлелдемейді."]
     return "\n".join(lines)

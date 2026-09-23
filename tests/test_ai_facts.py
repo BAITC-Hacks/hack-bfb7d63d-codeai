@@ -259,6 +259,43 @@ def test_invalid_role_scores_are_not_silently_converted_to_missing_evidence(netw
 def test_local_report_retains_cents_in_large_amounts(network):
     _, analysis, roles = network
     bundle = build_evidence(analysis, roles, "report_client", gid=BASE + 3)
-    bundle.facts[0]["value"] = 365890012.01
-    bundle.facts[0]["unit"] = "₸"
+    fact = next(fact for fact in bundle.facts if fact["source"] == "graph.in_kzt")
+    fact["value"] = 365890012.01
     assert "365890012.01 ₸" in local_report(bundle)
+
+
+def test_analyst_note_is_distinct_and_requests_the_missing_boundary_data(network):
+    _, analysis, roles = network
+    detailed = build_evidence(analysis, roles, "explain_client", gid=BASE + 5)
+    note = build_evidence(analysis, roles, "report_client", gid=BASE + 5)
+    assert note.facts == detailed.facts
+    assert local_report(note) != local_report(detailed)
+    assert len(local_report(note)) < len(local_report(detailed))
+    assert "әрі қарайғы шығыс операцияларын" in local_report(note)
+    assert "depth=4 → peripheral" in local_report(note)
+
+
+def test_configured_rule_and_actual_priority_contributions_are_grounded(network):
+    _, analysis, roles = network
+    bundle = build_evidence(analysis, roles, "explain_client", gid=BASE + 3)
+    assert "0.8 ≤ шығыс/кіріс 0.9 ≤ 1.2" in value(bundle, "roles.executed_rule", "C001")
+    top = build_evidence(analysis, roles, "top_priority", top_n=6)
+    first_gid = int(top.aliases["C001"])
+    row = roles.details.loc[roles.details.gid.eq(first_gid)].iloc[0]
+    breakdown = value(top, "roles.contribution_breakdown", "C001")
+    for key in roles.config["priority"]["weights"]:
+        assert str(row["priority_" + key]) in breakdown
+    assert value(top, "roles.executed_rule", "C001")
+
+
+def test_analyst_note_explains_contradictory_chronology_without_inventing_flow():
+    analysis = analyze_dataset(dataset(
+        [(1, 0, True), (2, 1, False), (3, 2, False)],
+        [(1, 2, "2026-07-10", 100), (2, 3, "2026-07-01", 100)],
+    ))
+    roles = classify_graph(analysis)
+    bundle = build_evidence(analysis, roles, "report_client", gid=BASE + 2)
+    assert value(bundle, "graph.temporal_contradiction", "C001") is True
+    assert value(bundle, "roles.transit_excluded_by_time", "C001") is True
+    assert "transit ережесі қабылданбайды" in value(bundle, "roles.executed_rule", "C001")
+    assert "ертерек кезеңдегі кірістерді" in local_report(bundle)

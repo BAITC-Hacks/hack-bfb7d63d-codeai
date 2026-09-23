@@ -55,7 +55,7 @@ def render_graph_tab(validation):
     cols[0].metric("Байланысқан бөліктер", integer(len(analysis.components)))
     cols[1].metric("Байланысы жоқ клиенттер", integer(analysis.nodes.is_isolated.sum()))
     cols[2].metric("Ең үлкен бөлік", integer(analysis.components.n_nodes.max()))
-    st.caption("Бөліктер байланыс бағытын уақытша ескермей анықталады. Louvain кластерлері мен рөлдерді «Рөлдер және басымдық» бөлімінде есептеңіз.")
+    st.caption("Бөліктер байланыс бағытын уақытша ескермей анықталады. Рөлдер мен басымдықты «Тексеру кезегі», қауымдарды «Кластерлер» бөлімінен қараңыз.")
 
     tabs = st.tabs(["Клиент көрсеткіштері", "Желі бөліктері", "Күндік аударымдар", "Нәтижелерді жүктеу"])
     with tabs[0]:
@@ -75,7 +75,7 @@ def render_graph_tab(validation):
             "n_tx": "Операциялар", "n_senders": "Жіберушілер", "n_receivers": "Алушылар",
         })
     with tabs[3]:
-        st.write("Бұл — 2-кезеңнің көрсеткіштері. ТЗ-дегі үш CSV файлы «Рөлдер және басымдық» бөлімінде жасалады.")
+        st.write("Бұл — графтың егжей-тегжейлі көрсеткіштері. Үш негізгі CSV: «Деректер және экспорт» → «Экспорт».")
         for filename, frame, label in (
             ("node_metrics.csv", analysis.nodes, "Клиент көрсеткіштері · CSV"),
             ("components.csv", analysis.components, "Желі бөліктері · CSV"),

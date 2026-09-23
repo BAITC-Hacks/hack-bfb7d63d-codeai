@@ -169,6 +169,27 @@ def test_same_day_exit_is_not_a_temporal_success_and_last_two_days_excluded():
     assert pd.isna(nodes.loc[2, "mean_next_out_days"])
 
 
+def test_temporal_contradiction_requires_strict_calendar_day_order_and_both_directions():
+    frames = dataset([(1, 0, True), (2, 1, False), (3, 1, False), (4, 1, False), (5, 2, False), (6, 0, True)], [
+        (2, 5, "2026-07-01 23:00", 100), (1, 2, "2026-07-03 01:00", 100),
+        (3, 5, "2026-07-02 01:00", 100), (1, 3, "2026-07-02 23:00", 100),
+        (1, 4, "2026-07-01 01:00", 100), (4, 5, "2026-07-08 01:00", 100),
+    ])
+    result = analyze_dataset(frames)
+    nodes = result.nodes.set_index("gid")
+    assert nodes.loc[2, "temporal_contradiction"]
+    assert nodes.loc[2, "temporal_order_status"] == "all_out_before_in"
+    assert nodes.loc[2, "first_in_date"] == pd.Timestamp("2026-07-03")
+    assert nodes.loc[2, "last_out_date"] == pd.Timestamp("2026-07-01")
+    assert nodes.loc[3, "temporal_order_status"] == "same_day_order_unknown"
+    assert not nodes.loc[3, "temporal_contradiction"]  # ignore within-day timestamps
+    assert nodes.loc[4, "temporal_order_status"] == "later_out_observed"
+    assert nodes.loc[[1, 5, 6], "temporal_order_status"].eq("insufficient_data").all()
+    assert not nodes.loc[[1, 5, 6], "temporal_contradiction"].any()
+    assert pd.isna(nodes.loc[6, "first_in_date"])
+    assert result.summary["n_temporal_contradictions"] == 1
+
+
 def test_daily_table_counts_operations_not_edges_and_includes_inactive_dates():
     frames = dataset([(1, 0, True), (2, 1, False), (3, 1, False)], [
         (1, 2, "2026-07-01", 5_000), (1, 2, "2026-07-01", 5_000),

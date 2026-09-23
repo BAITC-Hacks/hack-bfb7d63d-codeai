@@ -8,7 +8,7 @@ import pytest
 
 from moneymap.demo import create_demo_frames
 from moneymap.graph import analyze_dataset
-from moneymap.roles import CLUSTER_COLUMNS, NODE_ROLE_COLUMNS, ROLE_ORDER, TOP_COLUMNS, classify_graph, load_config
+from moneymap.roles import CLUSTER_COLUMNS, NODE_ROLE_COLUMNS, ROLE_ORDER, TOP_COLUMNS, _cluster_flows, _cluster_hypothesis, classify_graph, load_config
 
 
 def dataset(nodes, transfers):
@@ -188,6 +188,7 @@ def test_exports_contract_bounds_evidence_and_rank_order(six_roles):
     assert result.nodes_roles["role_score"].between(0, 0.9).all()
     assert result.nodes_roles["priority_score"].between(0, 1).all()
     assert result.nodes_roles["evidence"].str.len().between(1, 200).all()
+    assert result.nodes_roles["evidence"].str.contains(r"\d", regex=True).all()
     assert result.details.loc[result.details["depth"].eq(4), "role_score"].le(0.25).all()
     assert result.details.loc[result.details["is_seed"], "role_score"].le(0.7).all()
     assert result.details.loc[result.details["role"].eq("terminal"), "role_score"].le(0.55).all()
@@ -239,3 +240,77 @@ def test_top_minimum_validation(top_n):
 def test_small_demo_keeps_every_client_in_top_list():
     result = classify_graph(analyze_dataset(create_demo_frames()), top_n=30)
     assert len(result.top_nodes) == len(result.nodes_roles) == 16
+
+
+def test_transit_excludes_chronological_contradiction_but_keeps_same_day_uncertainty_and_slow_exit():
+    frames = dataset([(1, 0, True), (2, 1, False), (3, 1, False), (4, 1, False), (5, 2, False)], [
+        (2, 5, 100), (1, 2, 100), (3, 5, 100), (1, 3, 100), (1, 4, 100), (4, 5, 100),
+    ])
+    frames["transactions"]["date"] = pd.to_datetime(["2026-07-01", "2026-07-03", "2026-07-02", "2026-07-02", "2026-07-01", "2026-07-08"])
+    result = classify_graph(analyze_dataset(frames))
+    nodes = result.details.set_index("gid")
+    assert nodes.loc[2, "role"] == "peripheral"
+    assert nodes.loc[2, "transit_excluded_by_time"]
+    assert "2026-07-01" in nodes.loc[2, "evidence"] and "2026-07-03" in nodes.loc[2, "evidence"]
+    assert "уақыт қайшы" in nodes.loc[2, "evidence"]
+    assert nodes.loc[3, "role"] == "transit"
+    assert "реттілік белгісіз" in nodes.loc[3, "evidence"]
+    assert nodes.loc[4, "role"] == "transit"  # seven days is not a hard exclusion
+    assert nodes.loc[4, "next_out_1_2d_share"] == 0
+    assert result.summary["n_transit_candidates_excluded_by_time"] == 1
+
+
+def test_numeric_evidence_covers_isolates_and_self_transfers():
+    result = classify_graph(analyze_dataset(dataset([(1, 0, True), (2, 1, False)], [(2, 2, 25)])))
+    assert result.nodes_roles["evidence"].str.contains(r"\d", regex=True).all()
+    assert result.nodes_roles["evidence"].str.len().le(200).all()
+
+
+def test_cluster_flow_hypotheses_have_conservation_direction_and_concentration_evidence():
+    # Controlled communities separate the accounting test from Louvain choices.
+    frames = dataset([(gid, 1, False) for gid in range(1, 10)], [
+        (1, 4, 100), (2, 4, 100), (3, 4, 100), (4, 4, 1000),
+        (4, 5, 50), (5, 6, 100), (5, 7, 100), (5, 8, 100), (8, 1, 10),
+    ])
+    graph = analyze_dataset(frames).graph
+    groups = [{1, 2, 3, 4}, {5, 6, 7, 8}, {9}]
+    membership = {gid: cid for cid, group in enumerate(groups, 1) for gid in group}
+    flows = _cluster_flows(graph, groups, membership)
+    collecting, distributing, isolated = flows
+    assert collecting["internal_kzt"] == 1300  # self transfer retained for accounting
+    assert collecting["distinct_client_internal_kzt"] == 300
+    assert collecting["external_in_kzt"] == 10 and collecting["external_out_kzt"] == 50
+    assert collecting["top_internal_receiver_gid"] == "4"
+    assert collecting["top_internal_receiver_share"] == 1
+    assert collecting["top_internal_receiver_payers"] == 3
+    assert collecting["flow_pattern"] == "concentration"
+    assert distributing["flow_pattern"] == "distribution"
+    assert distributing["top_internal_sender_gid"] == "5"
+    assert distributing["top_internal_sender_receivers"] == 3
+    assert distributing["external_in_kzt"] == 50 and distributing["external_out_kzt"] == 10
+    assert sum(row["external_in_kzt"] for row in flows) == sum(row["external_out_kzt"] for row in flows) == 60
+    assert sum(row["internal_kzt"] + row["external_out_kzt"] for row in flows) == frames["edges"].sum_kzt.sum()
+    assert "жинақтау" in _cluster_hypothesis(collecting)
+    assert "100.0%" in _cluster_hypothesis(collecting)
+    assert "сырттан кіріс=10.00" in _cluster_hypothesis(collecting)
+    assert isolated["flow_pattern"] == "isolated"
+    assert isolated["top_internal_receiver_gid"] is None
+    json.dumps(flows, allow_nan=False)
+
+
+def test_bounded_sensitivity_is_reproducible_and_does_not_change_baseline(six_roles):
+    analysis = analyze_dataset(six_roles)
+    plain = classify_graph(analysis, include_sensitivity=False)
+    audited = classify_graph(analysis)
+    pd.testing.assert_frame_equal(plain.nodes_roles, audited.nodes_roles)
+    pd.testing.assert_frame_equal(plain.clusters, audited.clusters)
+    pd.testing.assert_frame_equal(plain.top_nodes, audited.top_nodes)
+    scenarios = audited.summary["sensitivity"]["scenarios"]
+    assert len(scenarios) == 4
+    assert [(row["parameter"], row["value"]) for row in scenarios] == [
+        ("consolidator_min_in_deg", 4), ("consolidator_min_in_deg", 6),
+        ("louvain_resolution", 0.8), ("louvain_resolution", 1.2),
+    ]
+    assert all(0 <= row["top_overlap"] <= len(audited.top_nodes) for row in scenarios)
+    assert all(row["role_changes"] == 0 for row in scenarios if row["parameter"] == "louvain_resolution")
+    assert "sensitivity" not in plain.summary

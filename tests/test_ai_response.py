@@ -36,6 +36,8 @@ def test_exact_numbers_and_gid_are_inserted_only_from_local_evidence(bundle):
     "[Сурет](https://example.com)", "<script>bad()</script>", "Клиент кінәлі.", "Клиент алаяқ.",
     "C001 қауіпсіз клиент.", "C001 кінәсіз.", "C001 шотын бұғаттау керек.",
     "Клиент невиновен.", "C001 is safe.",
+    "C001 sends funds to foreign accounts.", "C001 шетелдік шоттарға ақша жібереді.",
+    "C001 қаражатты офшор арқылы өткізеді.", "C001 қолма-қол ақша шығарады.",
 ])
 def test_untrusted_narrative_is_rejected_without_echoing_it(bundle, sentence):
     reply = valid_reply()

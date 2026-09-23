@@ -24,7 +24,7 @@ from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = (
     "README.md", "app.py", "requirements.txt", "setup.ps1", "start.ps1",
-    ".env.example", ".gitignore", ".streamlit/config.toml",
+    ".env.example", ".gitignore", ".streamlit/config.toml", "pytest.ini",
 )
 DIRECTORY_SUFFIXES = {
     "moneymap": {".py", ".html", ".css", ".js", ".json", ".md", ".txt", ".svg"},
@@ -37,8 +37,10 @@ CSV_FILES = ("nodes_roles.csv", "clusters.csv", "top_nodes.csv")
 RESULT_FILES = (*CSV_FILES, "run_report.json", "acceptance_report.json")
 RESULT_PREFIX = "results"
 OPTIONAL_REPORTS = {
-    "output/stage6/offline_ui_report.json": "verification/offline_ui_report.json",
-    "output/stage6/verification_report.json": "verification/verification_report.json",
+    "output/stage6/offline_ui_report.json": "verification/stage6_offline_ui_report.json",
+    "output/stage6/verification_report.json": "verification/stage6_verification_report.json",
+    "output/redesign/verification_report.json": "verification/release_verification_report.json",
+    "output/redesign/clean-results/acceptance_report.json": "verification/release_clean_environment.json",
 }
 FORBIDDEN_PARTS = {
     ".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache",

@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pandas as pd
 import pytest
 
 from moneymap.demo import create_demo_frames
@@ -45,6 +46,7 @@ def alter(output, name, mutation):
     (lambda rows: rows.pop(), "exactly cover input"),
     (lambda rows: rows[0].update(role_score="NaN"), "nonfinite"),
     (lambda rows: rows[0].update(evidence="a" * 201), "exceeds 200"),
+    (lambda rows: rows[0].update(evidence="No observed links"), "numeric facts"),
 ])
 def test_verifier_rejects_incomplete_nodes_and_invalid_evidence(submission, tamper, expected):
     data, output = submission
@@ -75,3 +77,21 @@ def test_verifier_rejects_wrong_top_score_even_with_python_optimized(submission)
     )
     assert result.returncode != 0
     assert "role/score differs from node" in result.stderr
+
+
+def test_verifier_independently_rejects_transit_before_first_income(tmp_path):
+    data, output = tmp_path / "data", tmp_path / "results"
+    data.mkdir()
+    nodes = pd.DataFrame({"gid": [1, 2, 3], "depth": [0, 1, 2], "is_seed": [True, False, False]})
+    transactions = pd.DataFrame({"src": [2, 1], "dst": [3, 2], "date": pd.to_datetime(["2026-07-01", "2026-07-03"]), "sum_kzt": [100.0, 100.0]})
+    edges = transactions.groupby(["src", "dst"], as_index=False).agg(sum_kzt=("sum_kzt", "sum"), n_tx=("sum_kzt", "size"))
+    edges["depth"] = 1
+    frames = {"nodes": nodes, "edges": edges, "transactions": transactions}
+    for name, frame in frames.items():
+        frame.to_parquet(data / f"{name}.parquet", index=False)
+    export_role_analysis(classify_graph(analyze_dataset(frames)), output)
+    validate_outputs(data, output)
+    for filename in ("nodes_roles.csv", "top_nodes.csv"):
+        alter(output, filename, lambda rows: next(row for row in rows if row["gid"] == "2").update(role="transit"))
+    with pytest.raises(VerificationError, match="all outgoing before first incoming"):
+        validate_outputs(data, output)

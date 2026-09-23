@@ -18,9 +18,9 @@ from moneymap.roles import ROLE_LABELS, ROLE_ORDER, RoleAnalysis
 
 
 ROLE_COLORS = {
-    "coordinator": "#243B66", "distributor": "#C26912",
-    "consolidator": "#137B71", "transit": "#4477AA",
-    "terminal": "#8856A7", "peripheral": "#7A8694",
+    "coordinator": "#695AC7", "distributor": "#C48B32",
+    "consolidator": "#167D77", "transit": "#438DC1",
+    "terminal": "#788BA3", "peripheral": "#A6B1BF",
 }
 DEPTH_COLORS = ("#243B66", "#4477AA", "#137B71", "#C26912", "#8856A7")
 NEIGHBOR_COLUMNS = ["src", "dst", "sum_kzt", "n_tx", "counterparty_gid", "direction_label", "role", "cluster_id"]

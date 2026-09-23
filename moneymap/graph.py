@@ -45,6 +45,10 @@ def _temporal_features(nodes: pd.DataFrame, transactions: pd.DataFrame) -> None:
     nodes["out_active_days"] = 0
     nodes["first_date"] = pd.NaT
     nodes["last_date"] = pd.NaT
+    for column in ("first_in_date", "last_in_date", "first_out_date", "last_out_date"):
+        nodes[column] = pd.NaT
+    nodes["temporal_contradiction"] = False
+    nodes["temporal_order_status"] = "insufficient_data"
     nodes["mean_next_out_days"] = np.nan
     nodes["next_out_1_2d_share"] = np.nan
     nodes["temporal_eligible_in_tx"] = 0
@@ -63,6 +67,18 @@ def _temporal_features(nodes: pd.DataFrame, transactions: pd.DataFrame) -> None:
         nodes[column] = nodes["gid"].map(values).fillna(0).astype("int64")
     nodes["first_date"] = nodes["gid"].map(activity.min())
     nodes["last_date"] = nodes["gid"].map(activity.max())
+    for column, table, aggregation in (
+        ("first_in_date", incoming, "min"), ("last_in_date", incoming, "max"),
+        ("first_out_date", outgoing, "min"), ("last_out_date", outgoing, "max"),
+    ):
+        nodes[column] = nodes["gid"].map(table.groupby("gid")["day"].agg(aggregation))
+    comparable = nodes["first_in_date"].notna() & nodes["last_out_date"].notna()
+    # This is a contradiction only of forwarding the *observed incoming* funds.
+    # It says nothing about an unobserved opening balance or external funding.
+    nodes["temporal_contradiction"] = comparable & nodes["last_out_date"].lt(nodes["first_in_date"])
+    nodes.loc[comparable, "temporal_order_status"] = "later_out_observed"
+    nodes.loc[comparable & nodes["last_out_date"].eq(nodes["first_in_date"]), "temporal_order_status"] = "same_day_order_unknown"
+    nodes.loc[nodes["temporal_contradiction"], "temporal_order_status"] = "all_out_before_in"
 
     cutoff = days.max() - pd.Timedelta(days=2)
     eligible = incoming.loc[incoming["day"] <= cutoff]
@@ -192,6 +208,7 @@ def analyze_dataset(frames: dict[str, pd.DataFrame]) -> AnalysisResult:
         "largest_component_nodes": len(components[0]),
         "max_in_degree": int(nodes["in_deg"].max()),
         "max_out_degree": int(nodes["out_deg"].max()),
+        "n_temporal_contradictions": int(nodes["temporal_contradiction"].sum()),
         "temporal_cutoff_date": (transactions["date"].max().normalize() - pd.Timedelta(days=2)).strftime("%Y-%m-%d") if not transactions.empty else None,
     }
     return AnalysisResult(graph, nodes, component_table, daily, summary, perf_counter() - started)

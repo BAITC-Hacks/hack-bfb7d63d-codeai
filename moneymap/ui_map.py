@@ -15,17 +15,21 @@ from moneymap.map_component import render_network, selected_from_event
 from moneymap.roles import classify_graph
 from moneymap.ui_graph import integer, safe_identifiers
 from moneymap.ui_roles import ROLE_LABELS, _render_role_detail
-from moneymap.ui_state import clear_map_state
+from moneymap.ui_state import clear_map_state, queue_map_navigation
 
 
 def render_map_tab(validation):
-    apply_pending_map_navigation()
-    st.subheader("Желі картасы")
-    st.write("Клиентті тауып, ақшаның кімнен келіп, кімге кеткенін зерттеңіз. Көрсеткі жіберушіден алушыға бағытталған.")
     if not validation.valid:
         st.info("Картаны ашу үшін алдымен деректердегі қателерді түзетіңіз.")
         return
-    if st.button("Картаны дайындау", key="prepare_map", type="primary"):
+    apply_pending_map_navigation()
+    ready = st.session_state.get("map_ready", False)
+    preparation = st.expander("Картаның бастапқы көрінісі", expanded=False) if ready else st.container()
+    with preparation:
+        if ready:
+            st.caption("Іздеу мен сүзгілер тазартылып, басымдығы ең жоғары клиенттің айналасы ашылады.")
+        prepare_clicked = st.button("Бастапқы көрініске қайтару" if ready else "Картаны дайындау", key="prepare_map", type="secondary" if ready else "primary")
+    if prepare_clicked:
         clear_map_state()
         with st.spinner("Карта үшін граф пен рөлдер дайындалып жатыр…"):
             try:
@@ -53,7 +57,7 @@ def render_map_tab(validation):
     graph = st.session_state.analysis
     roles = st.session_state.role_analysis
     with st.form("map_search_form", border=False):
-        search, action = st.columns([3, 1])
+        search, action = st.columns([3, 1], vertical_alignment="bottom")
         text = search.text_input("Кез келген клиентті іздеу · gid", key="map_search", placeholder="Толық gid енгізіңіз")
         submitted = action.form_submit_button("Картадан табу", width="stretch")
     if submitted:
@@ -74,17 +78,14 @@ def render_map_tab(validation):
     mode = controls[0].selectbox("Карта ауқымы", ["ego", "full", "cluster"], format_func={"ego": "Клиенттің айналасы", "full": "Толық желі", "cluster": "Бір кластер"}.get, key="map_mode")
     hops = controls[1].selectbox("Қадам саны", [1, 2], disabled=mode != "ego", key="map_hops")
     direction = controls[2].selectbox("Жол бағыты", ["both", "incoming", "outgoing"], format_func={"both": "Екі бағыт", "incoming": "Клиентке қарай", "outgoing": "Клиенттен әрі"}.get, disabled=mode != "ego", key="map_direction")
-    filters = st.columns([2, 1, 1])
-    selected_roles = filters[0].multiselect("Картадағы рөлдер", list(ROLE_LABELS), format_func=ROLE_LABELS.get, key="map_role_filters", placeholder="Барлық рөл")
-    cluster = filters[1].selectbox("Картадағы кластер", [0, *roles.clusters.cluster_id.tolist()], format_func=lambda value: "Барлығы" if value == 0 else f"Кластер {value}", key="map_cluster_filter")
-    color = filters[2].selectbox("Түспен белгілеу", ["role", "cluster", "depth"], format_func={"role": "Рөл", "cluster": "Кластер", "depth": "Буын"}.get, key="map_color")
-    amount_col, focus_col = st.columns([2, 1])
-    minimum = amount_col.number_input("Байланыстың ең аз жиынтық сомасы, ₸", min_value=0.0, value=0.0, step=5000.0, key="map_min_amount")
-    if focus_col.button("Таңдалған клиенттің айналасы", key="map_recenter", width="stretch"):
-        st.session_state.map_focus_gid = st.session_state.map_selected_gid
-        # The mode widget is already instantiated: use a pending update before rerun.
-        st.session_state.map_pending_ego = True
-        st.rerun()
+    with st.expander("Карта сүзгілері", expanded=mode == "cluster"):
+        filters = st.columns([2, 1, 1])
+        selected_roles = filters[0].multiselect("Рөл болжамы", list(ROLE_LABELS), format_func=ROLE_LABELS.get, key="map_role_filters", placeholder="Барлық рөл")
+        cluster = filters[1].selectbox("Байланыс тобы", [0, *roles.clusters.cluster_id.tolist()], format_func=lambda value: "Барлығы" if value == 0 else f"{value}-топ", key="map_cluster_filter")
+        color = filters[2].selectbox("Түспен белгілеу", ["role", "cluster", "depth"], format_func={"role": "Рөл", "cluster": "Топ", "depth": "Қадам"}.get, key="map_color")
+        minimum = st.number_input("Байланыстың ең аз жиынтық сомасы, ₸", min_value=0.0, step=5000.0, key="map_min_amount")
+    if st.button("Таңдалған клиенттің айналасы", key="map_recenter"):
+        queue_map_navigation(gid=st.session_state.map_selected_gid)
     effective_cluster = cluster or None
     if mode == "cluster" and effective_cluster is None:
         effective_cluster = int(roles.details.set_index("gid").loc[int(st.session_state.map_focus_gid), "cluster_id"])
@@ -122,7 +123,7 @@ def render_map_tab(validation):
         # A component event reruns Python with the previous render arguments.
         # Confirm the new selection to the browser; nonce prevents a loop.
         st.rerun()
-    st.caption("Клиентті картадан бассаңыз, төмендегі карточка ашылады. Ромб — seed, үзік жиек — 4-буын. Өлшем — басымдық, сызық ені — бақыланған сома.")
+    st.caption("Ромб — бастапқы клиент · үзік жиек — 4-қадам · өлшем — тексеру басымдығы · сызық ені — сома.")
     _render_client_card(validation.frames, graph, roles, st.session_state.map_selected_gid)
 
 
@@ -132,6 +133,41 @@ def apply_pending_map_navigation():
         st.session_state.map_mode = "ego"
         st.session_state.map_role_filters = []
         st.session_state.map_cluster_filter = 0
+    request = st.session_state.get("map_pending_navigation")
+    if not request:
+        return
+    graph = st.session_state.get("analysis")
+    roles = st.session_state.get("role_analysis")
+    if graph is None or roles is None:
+        return
+    st.session_state.pop("map_pending_navigation", None)
+    mode = request.get("mode")
+    if mode == "cluster":
+        cluster_id = request.get("cluster_id")
+        members = roles.details.loc[roles.details.cluster_id.eq(cluster_id)]
+        if members.empty:
+            st.error("Бұл топ қазіргі деректерде табылмады.")
+            return
+        gid = str(int(members.sort_values(["priority_score", "gid"], ascending=[False, True]).gid.iloc[0]))
+    else:
+        gid = request.get("gid")
+        if gid is None or int(gid) not in graph.graph:
+            st.error("Бұл клиент қазіргі деректерде табылмады.")
+            return
+        cluster_id = 0
+    st.session_state.map_ready = True
+    st.session_state.setdefault("map_epoch", uuid4().hex)
+    st.session_state.map_focus_gid = gid
+    st.session_state.map_selected_gid = gid
+    st.session_state.map_search = gid
+    st.session_state.map_mode = mode
+    st.session_state.map_hops = 1
+    st.session_state.map_direction = "both"
+    st.session_state.map_role_filters = []
+    st.session_state.map_cluster_filter = cluster_id
+    st.session_state.map_min_amount = 0.0
+    st.session_state.map_color = "cluster" if mode == "cluster" else "role"
+    st.session_state.pop("map_last_nonce", None)
 
 
 def _json_value(value):
@@ -149,9 +185,9 @@ def _json_value(value):
 def _render_client_card(frames, graph, roles, gid):
     st.divider()
     st.subheader(f"Клиент карточкасы · {gid}")
-    st.caption("Карточка бүкіл бақыланған кезеңнің деректерін көрсетеді. Карта сүзгісі кіріс/шығысқа, рөлге немесе операциялар тізіміне әсер етпейді.")
+    st.caption("Толық бақыланған кезең. Карта сүзгілері осы карточкадағы сандарды өзгертпейді.")
     row = roles.details.set_index("gid").loc[int(gid)]
-    tabs = st.tabs(["Рөл және көрсеткіштер", "Тікелей байланыстар", "Жеке операциялар", "Seed жолдары"])
+    tabs = st.tabs(["Рөл және көрсеткіштер", "Тікелей байланыстар", "Жеке операциялар", "Бастапқы клиент жолдары"])
     with tabs[0]:
         _render_role_detail(roles, gid)
         cols = st.columns(3)
@@ -160,6 +196,22 @@ def _render_client_card(frames, graph, roles, gid):
         cols[2].metric("Белсенді күндер", integer(row.active_days))
         if pd.notna(row.first_date):
             st.caption(f"Кезең: {row.first_date:%Y-%m-%d} — {row.last_date:%Y-%m-%d}.")
+        if "first_in_date" in row.index:
+            st.markdown("**Аударым күндері**")
+            def date_text(value):
+                return "Бақыланбаған" if pd.isna(value) else f"{value:%Y-%m-%d}"
+            dates = pd.DataFrame({
+                "Бағыт": ["Кіріс", "Шығыс"],
+                "Алғашқы күн": [date_text(row.first_in_date), date_text(row.first_out_date)],
+                "Соңғы күн": [date_text(row.last_in_date), date_text(row.last_out_date)],
+            })
+            st.dataframe(dates, hide_index=True, width="stretch")
+            if row.get("temporal_order_status") == "later_out_observed":
+                st.caption("Кірістен кейінгі күнде шығыс бар. Бұл белгілі бір кіріс дәл сол шығысты қаржыландырғанын дәлелдемейді.")
+            elif row.get("temporal_order_status") == "insufficient_data":
+                st.caption("Екі бағыттағы күндерді салыстыруға дерек жеткіліксіз.")
+            if bool(row.get("transit_excluded_by_time", False)):
+                st.info("Сомалар қатынасы транзит шартына сәйкес келеді, бірақ күндер оған қайшы. Сондықтан транзит рөлі берілмеді.")
         share = "дерек жеткіліксіз" if pd.isna(row.next_out_1_2d_share) else f"{row.next_out_1_2d_share:.1%}"
         st.write(f"Кейінгі 1–2 күнде шығыс байқалған кірістер үлесі: **{share}**; есепке кіргені — {integer(row.temporal_eligible_in_tx)} операция.")
         st.caption("Соңғы екі күндегі кірістер үлеске кірмейді. Бір күн ішіндегі реттілік пен қаражаттың сәйкестігі анықталмайды.")
@@ -170,10 +222,16 @@ def _render_client_card(frames, graph, roles, gid):
         if neighbors.empty:
             st.info("Бақыланған тікелей байланыс жоқ. Клиент картада сақталған.")
         else:
-            st.dataframe(safe_identifiers(neighbors), hide_index=True, width="stretch", column_config={
-                "src": "Жіберуші gid", "dst": "Алушы gid", "counterparty_gid": "Қарсы тарап gid", "direction_label": "Бағыт",
+            displayed = safe_identifiers(neighbors)
+            displayed["role"] = displayed.role.map(ROLE_LABELS).fillna(displayed.role)
+            st.dataframe(displayed, hide_index=True, width="stretch", column_config={
+                "src": "Жіберуші ID", "dst": "Алушы ID", "counterparty_gid": "Қарсы тарап ID", "direction_label": "Бағыт",
                 "sum_kzt": st.column_config.NumberColumn("Сома, ₸", format="%.2f"), "n_tx": "Операциялар", "role": "Қарсы тарап рөлі", "cluster_id": "Кластер",
             })
+            pick, action = st.columns([3, 1], vertical_alignment="bottom")
+            target = pick.selectbox("Байланысты клиентті зерттеу", [str(value) for value in sorted(neighbors.counterparty_gid.unique())], key=f"map_neighbor_{gid}")
+            if action.button("Желіде ашу →", key="map_open_neighbor", width="stretch"):
+                queue_map_navigation(gid=target)
             st.download_button("Байланыстарды жүктеу · CSV", neighbors.to_csv(index=False).encode("utf-8-sig"), file_name=f"client-{gid}-neighbors.csv", mime="text/csv", key="map_download_neighbors")
     with tabs[2]:
         transactions = client_transactions(frames, gid)
@@ -182,7 +240,7 @@ def _render_client_card(frames, graph, roles, gid):
             st.info("Осы клиентке қатысты операция жоқ.")
         else:
             st.dataframe(safe_identifiers(transactions), hide_index=True, width="stretch", column_config={
-                "src": "Жіберуші gid", "dst": "Алушы gid", "date": "Күн", "direction_label": "Бағыт",
+                "src": "Жіберуші ID", "dst": "Алушы ID", "date": "Күн", "direction_label": "Бағыт",
                 "sum_kzt": st.column_config.NumberColumn("Сома, ₸", format="%.2f"),
             })
             st.download_button("Операцияларды жүктеу · CSV", transactions.to_csv(index=False).encode("utf-8-sig"), file_name=f"client-{gid}-transactions.csv", mime="text/csv", key="map_download_transactions")

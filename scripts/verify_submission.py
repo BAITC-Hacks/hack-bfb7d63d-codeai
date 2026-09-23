@@ -101,6 +101,7 @@ def validate_outputs(data_dir, output_dir):
         row["role_score"] = number(row["role_score"], "role_score", score=True)
         row["priority_score"] = number(row["priority_score"], "priority_score", score=True)
         require(len(row["evidence"]) <= 200, "nodes_roles.csv: evidence exceeds 200 characters")
+        require(re.search(r"\d", row["evidence"]) is not None, "nodes_roles.csv: evidence must contain numeric facts")
         cluster = integer(row["cluster_id"], "node cluster_id")
         groups.setdefault(cluster, set()).add(gid)
         nodes[gid] = row
@@ -146,6 +147,14 @@ def validate_outputs(data_dir, output_dir):
         role = nodes[int(row.gid)]["role"]
         require(int(row.depth) != 4 or role == "peripheral", "depth-4 node violates documented role mask")
         require(not row.is_seed or role not in {"consolidator", "transit", "terminal"}, "seed node violates ratio-role mask")
+    transactions = pd.read_parquet(data_dir / "transactions.parquet")
+    days = pd.to_datetime(transactions["date"], utc=True).dt.tz_localize(None).dt.normalize()
+    dated = transactions.assign(day=days)
+    first_in = dated.groupby("dst")["day"].min()
+    last_out = dated.groupby("src")["day"].max()
+    for gid, row in nodes.items():
+        contradiction = gid in first_in and gid in last_out and last_out.loc[gid] < first_in.loc[gid]
+        require(not contradiction or row["role"] != "transit", "transit node has all outgoing before first incoming day")
     return {"nodes": len(nodes), "clusters": len(clusters), "top_nodes": len(top), "evidence_max_characters": max(len(row["evidence"]) for row in rows)}
 
 

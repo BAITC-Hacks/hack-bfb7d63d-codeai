@@ -50,3 +50,27 @@ input{font-variant-numeric:tabular-nums}
 .tooltip-title{font-weight:700;margin-bottom:5px;font-variant-numeric:tabular-nums}
 .tooltip-line+.tooltip-line{margin-top:3px}
 @media(max-width:520px){.graph-shell{height:480px}.toolbar{gap:8px}.heading-row{gap:5px}.graph-stats{font-size:13px}.physics-status{font-size:11px}.legend{gap:6px 10px;max-height:145px}button{font-size:12px;min-height:36px}.search-controls{max-width:none}.selected-card{padding:10px}.graph-help{font-size:11px}}
+
+/* Match the analyst workspace while keeping graph controls local and offline. */
+:root{--ink:#182b42;--muted:#687b8e;--line:#dfe7ef;--teal:#0d887e;--soft:#f6f8fc;--focus:#0d887e}
+html,body{background:#fff;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{padding:3px 1px 8px}
+.heading-row{padding:0 2px;margin-bottom:12px}
+.graph-stats{font-size:13px;letter-spacing:.01em}
+.physics-status{font-size:11px}
+.toolbar{margin-bottom:10px}
+button{border-color:var(--line);border-radius:9px;min-height:34px;padding:6px 12px;font-size:12px;font-weight:550}
+button:hover:enabled{background:#edf8f6;border-color:#9bd5cb}
+.graph-shell{height:540px;border-radius:14px;background-color:#f8fafc;background-image:radial-gradient(#bac9d74a .7px,transparent .7px);background-size:18px 18px}
+.graph-loading{border-radius:9px;border-color:#bce0d9;color:#176e65;box-shadow:0 3px 10px #14273809}
+.legend{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafcfe;gap:8px 16px;margin:12px 0}
+.legend-title{color:var(--ink);font-weight:600}
+.legend-item{font-size:11px}
+.legend-color{width:9px;height:9px}
+.accessible-selection{padding:12px 2px 0}
+.accessible-selection select{border-radius:9px;min-height:38px;background:#fafcfe}
+.search-row{display:none}
+.selected-card{display:none}
+.scope-note{border-radius:9px}
+.graph-help{font-size:11px;line-height:1.6}
+@media(max-width:520px){.graph-shell{height:440px}.legend{padding:8px 10px}.physics-status{max-width:100%}}
