@@ -1,4 +1,4 @@
-"""MoneyMap · Local Parquet validation and Stage 2 graph analysis."""
+"""MoneyMap · Local intake, graph metrics and explainable role hypotheses."""
 
 from collections import Counter
 from dataclasses import asdict
@@ -11,10 +11,13 @@ import streamlit as st
 from moneymap.data import load_parquet_files, validate_dataset
 from moneymap.demo import create_demo_frames, create_demo_zip
 from moneymap.ui_graph import render_graph_tab, safe_identifiers
+from moneymap.ui_roles import render_roles_tab
+from moneymap.ui_map import render_map_tab
+from moneymap.ui_state import clear_map_state
 
 
 st.set_page_config(
-    page_title="MoneyMap · Деректер және граф",
+    page_title="MoneyMap · Желіні талдау",
     page_icon="◈",
     layout="wide",
     initial_sidebar_state="auto",
@@ -40,7 +43,7 @@ st.markdown(
     .brand { font-size: 1.8rem; font-weight: 750; letter-spacing: -0.06em; margin: 0; }
     .brand-mark { color: #52d8c4 !important; margin-right: 0.4rem; }
     .eyebrow { font-size: .82rem; font-weight: 650; color: #4b647b; letter-spacing: .08em; }
-    .step { padding: .7rem .85rem; border-radius: 8px; margin: .3rem 0; font-size: .9rem; }
+    .step { color: #e7eff8; padding: .7rem .85rem; border-radius: 8px; margin: .3rem 0; font-size: .9rem; }
     .step.active { background: #23475f; border-left: 3px solid #52d8c4; }
     .step.pending { color: #b2c5d8 !important; }
     .file-spec { padding: .8rem 0; border-bottom: 1px solid #e1e8ef; }
@@ -58,7 +61,8 @@ st.markdown(
 
 
 def clear_report():
-    for key in ("validation", "source", "checked_at", "analysis", "inspect_gid"):
+    clear_map_state()
+    for key in ("validation", "source", "checked_at", "analysis", "inspect_gid", "role_analysis", "role_gid", "role_cluster", "role_filter"):
         st.session_state.pop(key, None)
 
 
@@ -86,9 +90,9 @@ with st.sidebar:
     st.markdown(
         """
         <div class="step">01 &nbsp; Деректерді қабылдау ✓</div>
-        <div class="step active">02 &nbsp; Граф және көрсеткіштер</div>
-        <div class="step pending">03 &nbsp; Рөлдер және басымдық</div>
-        <div class="step pending">04 &nbsp; Карта және карточкалар</div>
+        <div class="step">02 &nbsp; Граф және көрсеткіштер ✓</div>
+        <div class="step">03 &nbsp; Рөлдер және басымдық ✓</div>
+        <div class="step active">04 &nbsp; Карта және карточкалар</div>
         <div class="step pending">05 &nbsp; AI көмекші</div>
         <div class="step pending">06 &nbsp; Қорытынды тексеру</div>
         """,
@@ -106,9 +110,9 @@ with st.sidebar:
     )
     st.caption("Жасанды деректер · интерфейсті сынауға арналған")
 
-st.markdown('<div class="eyebrow">ЖҰМЫС КЕҢІСТІГІ / 01–02</div>', unsafe_allow_html=True)
-st.title("Деректер және граф")
-st.write("Кейс файлдарын тексеріп, клиенттердің байланыстарын, ақша ағынын және күндік көрсеткіштерін есептеңіз.")
+st.markdown('<div class="eyebrow">ЖҰМЫС КЕҢІСТІГІ / 01–04</div>', unsafe_allow_html=True)
+st.title("Қаржылық желіні талдау")
+st.write("Кейс файлдарын тексеріп, клиенттердің байланыстарын, ықтимал рөлдерін және тексеру кезегін анықтаңыз.")
 
 left, right = st.columns([1.65, 1], gap="large")
 with left:
@@ -170,7 +174,7 @@ if result is None:
         st.info("Нақты кейс файлдары әлі жүктелген жоқ. Жұмысты көру үшін «Демо деректермен тексеру» батырмасын басыңыз.")
     with st.expander("Тексеру нені қамтиды?"):
         st.write("Міндетті өрістер, дерек түрлері, қайталанатын клиенттер, белгісіз жіберушілер мен алушылар, оң сомалар және операциялардың байланыстар кестесімен сәйкестігі тексеріледі.")
-        st.write("Төртінші буын мен бастапқы клиенттердің толық емес кірістері жеке ескертіледі. Рөлдер мен тексеру басымдығы келесі кезеңдерде есептеледі.")
+        st.write("Төртінші буын мен бастапқы клиенттердің толық емес кірістері жеке ескертіледі. Тексеруден кейін графты, рөлдерді және басымдықты есептеуге болады.")
     st.stop()
 
 st.divider()
@@ -193,7 +197,7 @@ metrics = result.metrics
 for col, label, key in zip(st.columns(4), ["Клиенттер", "Байланыстар", "Операциялар", "Бастапқы клиенттер"], ["nodes", "edges", "transactions", "seeds"]):
     col.metric(label, number(metrics.get(key)))
 
-tabs = st.tabs(["Деректер сапасы", "Граф көрсеткіштері", "Кестелерді қарау", "Тексеру есебі"])
+tabs = st.tabs(["Деректер сапасы", "Граф көрсеткіштері", "Рөлдер және басымдық", "Желі картасы", "Кестелерді қарау", "Тексеру есебі"])
 with tabs[0]:
     if errors:
         for issue in errors:
@@ -217,6 +221,10 @@ with tabs[0]:
 with tabs[1]:
     render_graph_tab(result)
 with tabs[2]:
+    render_roles_tab(result)
+with tabs[3]:
+    render_map_tab(result)
+with tabs[4]:
     names = [name for name in ("nodes", "edges", "transactions") if name in result.frames]
     if names:
         table_name = st.selectbox("Кесте", names, format_func=lambda name: f"{name}.parquet")
@@ -225,7 +233,7 @@ with tabs[2]:
         st.dataframe(safe_identifiers(frame.head(100)), hide_index=True, width="stretch")
     else:
         st.info("Көрсетуге болатын кесте жоқ.")
-with tabs[3]:
+with tabs[5]:
     report = {
         "stage": 1,
         "source": {"demo": "synthetic_demo", "local_case": "local_case_files", "upload": "uploaded_files"}[st.session_state.source],
@@ -233,7 +241,7 @@ with tabs[3]:
         "metrics": result.metrics,
         "issues": [asdict(issue) for issue in result.issues],
     }
-    st.write("Есепте тек тексеру нәтижелері бар. Клиенттердің рөлдері мен басымдығы бұл кезеңде есептелмейді.")
+    st.write("Бұл есепте тек деректер сапасын тексеру нәтижелері бар. Рөлдер мен басымдық файлдары «Рөлдер және басымдық» бөлімінде.")
     st.download_button(
         "Тексеру есебін жүктеу · JSON",
         json.dumps(report, ensure_ascii=False, indent=2, default=str),

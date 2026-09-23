@@ -7,12 +7,13 @@ import streamlit as st
 
 from moneymap.graph import analyze_dataset, observed_seed_paths
 from moneymap.reports import analysis_summary
+from moneymap.ui_state import clear_map_state
 
 
 def safe_identifiers(frame):
     """Browser numbers cannot represent the supplied 18-digit identifiers."""
     safe = frame.copy()
-    for column in ("gid", "src", "dst"):
+    for column in ("gid", "src", "dst", "counterparty_gid"):
         if column in safe.columns:
             safe[column] = safe[column].map(lambda value: str(int(value)) if pd.notna(value) else "")
     return safe
@@ -33,7 +34,9 @@ def render_graph_tab(validation):
     st.subheader("Граф және көрсеткіштер")
     st.write("Барлық клиенттердің бағытталған байланыстары, ақша ағыны және уақыттық белгілері.")
     if st.button("Граф көрсеткіштерін есептеу", type="primary", key="compute_graph"):
-        st.session_state.pop("analysis", None)
+        clear_map_state()
+        for key in ("analysis", "role_analysis", "role_gid", "role_cluster"):
+            st.session_state.pop(key, None)
         with st.spinner("Граф, бастапқы клиенттермен байланыстар және күндік көрсеткіштер есептеліп жатыр…"):
             try:
                 st.session_state.analysis = analyze_dataset(validation.frames)
@@ -51,7 +54,7 @@ def render_graph_tab(validation):
     cols[0].metric("Байланысқан бөліктер", integer(len(analysis.components)))
     cols[1].metric("Байланысы жоқ клиенттер", integer(analysis.nodes.is_isolated.sum()))
     cols[2].metric("Ең үлкен бөлік", integer(analysis.components.n_nodes.max()))
-    st.caption("Бөліктер байланыс бағытын уақытша ескермей анықталады. Рөлдер, кластерлер және тексеру басымдығы 3-кезеңде қосылады.")
+    st.caption("Бөліктер байланыс бағытын уақытша ескермей анықталады. Louvain кластерлері мен рөлдерді «Рөлдер және басымдық» бөлімінде есептеңіз.")
 
     tabs = st.tabs(["Клиент көрсеткіштері", "Желі бөліктері", "Күндік аударымдар", "Нәтижелерді жүктеу"])
     with tabs[0]:
@@ -71,7 +74,7 @@ def render_graph_tab(validation):
             "n_tx": "Операциялар", "n_senders": "Жіберушілер", "n_receivers": "Алушылар",
         })
     with tabs[3]:
-        st.write("Бұл — 2-кезеңнің есептелген көрсеткіштері. ТЗ-дегі рөлдер, кластерлер және басымдық CSV файлдары келесі кезеңде жасалады.")
+        st.write("Бұл — 2-кезеңнің көрсеткіштері. ТЗ-дегі үш CSV файлы «Рөлдер және басымдық» бөлімінде жасалады.")
         for filename, frame, label in (
             ("node_metrics.csv", analysis.nodes, "Клиент көрсеткіштері · CSV"),
             ("components.csv", analysis.components, "Желі бөліктері · CSV"),
@@ -107,7 +110,7 @@ def _render_nodes(analysis):
         shown = shown.loc[shown.depth.eq(int(depth_filter))]
     shown = shown.sort_values([sort_key, "gid"], ascending=[False, True])
     display_cols = ["gid", "depth", "is_seed", "in_deg", "out_deg", "in_kzt", "out_kzt", "reachable_seed_count", "pagerank", "betweenness"]
-    st.caption(f"{len(shown)} клиент · алғашқы 100 жол. Бұл көрсеткіш бойынша сұрыптау; тексеру басымдығы әлі есептелген жоқ.")
+    st.caption(f"{len(shown)} клиент · алғашқы 100 жол. Бір көрсеткіш бойынша сұрыптау; толық тексеру кезегі «Рөлдер және басымдық» бөлімінде.")
     st.dataframe(safe_identifiers(shown[display_cols].head(100)), hide_index=True, width="stretch", column_config={
         "gid": st.column_config.TextColumn("gid"), "depth": "Буын", "is_seed": "Бастапқы",
         "in_deg": "Жіберушілер", "out_deg": "Алушылар",
