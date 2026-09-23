@@ -77,6 +77,31 @@ def test_no_positive_centrality_never_qualifies_as_coordinator():
     assert not result.details["role"].eq("coordinator").any()
 
 
+@pytest.mark.parametrize("external_senders,expected_role", [(4, "terminal"), (5, "consolidator")])
+def test_self_transfer_does_not_reach_consolidator_sender_threshold(external_senders, expected_role):
+    nodes = [(gid, 0, True) for gid in range(1, external_senders + 1)] + [(100, 1, False)]
+    transfers = [(gid, 100, 10_000) for gid in range(1, external_senders + 1)] + [(100, 100, 5_000)]
+    row = classify_graph(analyze_dataset(dataset(nodes, transfers))).details.set_index("gid").loc[100]
+    assert row["in_deg"] == external_senders
+    assert row["out_deg"] == 0
+    assert row["role"] == expected_role
+    assert row["out_kzt"] == 5_000  # Self transfer remains observed money.
+    if expected_role == "terminal":
+        assert row["matched_roles"] == "terminal"
+        assert "Өзге клиентке шығыс байқалмады" in row["evidence"]
+
+
+@pytest.mark.parametrize("external_receivers,expected_role", [(9, "peripheral"), (10, "distributor")])
+def test_self_transfer_does_not_reach_distributor_recipient_threshold(external_receivers, expected_role):
+    nodes = [(1, 0, True)] + [(gid, 1, False) for gid in range(2, external_receivers + 2)]
+    transfers = [(1, gid, 10_000) for gid in range(2, external_receivers + 2)] + [(1, 1, 5_000)]
+    row = classify_graph(analyze_dataset(dataset(nodes, transfers))).details.set_index("gid").loc[1]
+    assert row["out_deg"] == external_receivers
+    assert row["in_deg"] == 0
+    assert row["role"] == expected_role
+    assert row["in_kzt"] == 5_000
+
+
 def test_independent_priority_components_sum_and_hand_calculation(six_roles):
     analysis = analyze_dataset(six_roles)
     result = classify_graph(analysis)
@@ -122,7 +147,10 @@ def test_reciprocal_projection_and_self_loop_accounting():
     assert nodes.loc[1, "cluster_id"] == nodes.loc[2, "cluster_id"]
     assert nodes.loc[3, "cluster_id"] != nodes.loc[4, "cluster_id"]
     assert nodes.loc[3, "self_loop_only"]
+    assert not nodes.loc[3, "is_isolated"]
+    assert nodes.loc[3, "in_deg"] == nodes.loc[3, "out_deg"] == 0
     assert nodes.loc[3, "role"] == "peripheral"
+    assert nodes.loc[3, "role_score"] == 0.2
     assert nodes.loc[3, "matched_roles"] == "peripheral"
     assert not nodes.loc[2, "self_loop_only"]
     assert "өзге клиентпен байланыс жоқ" in nodes.loc[3, "evidence"]
@@ -188,6 +216,7 @@ def test_exports_contract_bounds_evidence_and_rank_order(six_roles):
     assert result.nodes_roles["role_score"].between(0, 0.9).all()
     assert result.nodes_roles["priority_score"].between(0, 1).all()
     assert result.nodes_roles["evidence"].str.len().between(1, 200).all()
+    assert result.nodes_roles["evidence"].str.contains(r"\d").all()
     assert result.details.loc[result.details["depth"].eq(4), "role_score"].le(0.25).all()
     assert result.details.loc[result.details["is_seed"], "role_score"].le(0.7).all()
     assert result.details.loc[result.details["role"].eq("terminal"), "role_score"].le(0.55).all()

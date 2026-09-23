@@ -14,7 +14,10 @@ from moneymap.ui_graph import render_graph_tab, safe_identifiers
 from moneymap.ui_roles import render_roles_tab
 from moneymap.ui_map import render_map_tab
 from moneymap.ui_ai import render_ai_tab
-from moneymap.ui_state import clear_map_state, clear_ai_state
+from moneymap.ui_investigation import render_investigation_tab
+from moneymap.ui_anomalies import render_anomalies_tab
+from moneymap.ui_evaluation import render_evaluation_tab
+from moneymap.ui_state import clear_map_state, clear_ai_state, clear_investigation_state
 
 
 st.set_page_config(
@@ -64,6 +67,9 @@ st.markdown(
 def clear_report():
     clear_map_state()
     clear_ai_state()
+    clear_investigation_state()
+    # Expert labels are rebound by normalized dataset fingerprint in their tab.
+    # Revalidating the same input must not silently discard an analyst's work.
     for key in ("validation", "source", "checked_at", "analysis", "inspect_gid", "role_analysis", "role_gid", "role_cluster", "role_filter"):
         st.session_state.pop(key, None)
 
@@ -199,7 +205,7 @@ metrics = result.metrics
 for col, label, key in zip(st.columns(4), ["Клиенттер", "Байланыстар", "Операциялар", "Бастапқы клиенттер"], ["nodes", "edges", "transactions", "seeds"]):
     col.metric(label, number(metrics.get(key)))
 
-tabs = st.tabs(["Деректер сапасы", "Граф көрсеткіштері", "Рөлдер және басымдық", "Желі картасы", "AI көмекші", "Кестелерді қарау", "Тексеру есебі"])
+tabs = st.tabs(["Деректер сапасы", "Граф көрсеткіштері", "Рөлдер және басымдық", "Желі картасы", "AI көмекші", "Қосымша талдау", "Аномалиялар", "Сарапшы бағасы", "Кестелерді қарау", "Тексеру есебі"])
 with tabs[0]:
     if errors:
         for issue in errors:
@@ -229,6 +235,12 @@ with tabs[3]:
 with tabs[4]:
     render_ai_tab(result)
 with tabs[5]:
+    render_investigation_tab(result)
+with tabs[6]:
+    render_anomalies_tab(result)
+with tabs[7]:
+    render_evaluation_tab(result)
+with tabs[8]:
     names = [name for name in ("nodes", "edges", "transactions") if name in result.frames]
     if names:
         table_name = st.selectbox("Кесте", names, format_func=lambda name: f"{name}.parquet")
@@ -237,7 +249,7 @@ with tabs[5]:
         st.dataframe(safe_identifiers(frame.head(100)), hide_index=True, width="stretch")
     else:
         st.info("Көрсетуге болатын кесте жоқ.")
-with tabs[6]:
+with tabs[9]:
     report = {
         "stage": 1,
         "source": {"demo": "synthetic_demo", "local_case": "local_case_files", "upload": "uploaded_files"}[st.session_state.source],

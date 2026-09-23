@@ -16,13 +16,15 @@ import numbers
 import pandas as pd
 
 from moneymap.data import _exact_integer
-from moneymap.graph import AnalysisResult
+from moneymap.graph import AnalysisResult, observed_seed_paths
 from moneymap.roles import ROLE_LABELS, RoleAnalysis
 
 
-TASKS = {"explain_client", "report_client", "top_priority", "cluster_summary", "common_recipients"}
+TASKS = {"explain_client", "report_client", "top_priority", "cluster_summary", "common_recipients",
+         "seed_paths", "data_completeness", "client_flows"}
 BASE_WARNINGS = [
     "Көрсеткіштер толық бақыланған жиыннан жергілікті есептелген; карта сүзгілері оларды өзгертпейді.",
+    "Жіберушілер мен алушылар саны тек өзге клиенттерді қамтиды. Өзіне аударымдар сомалар мен операциялар санында сақталады.",
     "Рөлдер мен басымдық — тексеру болжамдары; ұпай кінәлілік ықтималдығы емес.",
     "Байланыс пен жақын сомалар дәл сол қаражаттың өткенін немесе операциялардың уақыт ретін дәлелдемейді.",
     "Seed клиенттерінің кірісі толық емес; олардың шығыс/кіріс қатынасы рөлге дәлел болмайды.",
@@ -38,8 +40,8 @@ CLIENT_FIELDS = (
     ("truncated_by_depth", "Шығыс бақылауы 4-буынмен шектелген", ""),
     ("in_kzt", "Кіріс сомасы", "₸"),
     ("out_kzt", "Шығыс сомасы", "₸"),
-    ("in_deg", "Бірегей жіберушілер", "клиент"),
-    ("out_deg", "Бірегей алушылар", "клиент"),
+    ("in_deg", "Өзге бірегей жіберушілер", "клиент"),
+    ("out_deg", "Өзге бірегей алушылар", "клиент"),
     ("in_tx", "Кіріс операциялары", "операция"),
     ("out_tx", "Шығыс операциялары", "операция"),
     ("reachable_seed_count", "Бағытталған жолмен жететін өзге seed", "клиент"),
@@ -145,6 +147,7 @@ def build_evidence(
     cluster_id=None,
     gids=None,
     top_n=5,
+    direction="both",
 ) -> EvidenceBundle:
     """Build <=100 scalar facts; common recipients are direct intersections.
 
@@ -156,6 +159,8 @@ def build_evidence(
         raise ValueError("Белгісіз талдау тапсырмасы")
     if isinstance(top_n, bool) or not isinstance(top_n, numbers.Integral) or not 1 <= top_n <= 10:
         raise ValueError("top_n 1–10 аралығындағы бүтін сан болуы керек")
+    if direction not in ("both", "incoming", "outgoing") or (task != "client_flows" and direction != "both"):
+        raise ValueError("Бағыт тек client_flows тапсырмасы үшін incoming/outgoing/both болады")
     rows = _rows(analysis, roles)
     facts, aliases = [], {}
     reverse_aliases = {}
@@ -183,8 +188,8 @@ def build_evidence(
         add(f"{alias(client)} · Тексеру кезегі", rank, "орын", "roles.priority_order")
         for key, label, unit in (
             ("role", "Рөл болжамы", ""), ("priority_score", "Тексеру басымдығы", "ұпай"),
-            ("in_kzt", "Кіріс сомасы", "₸"), ("in_deg", "Бірегей жіберушілер", "клиент"),
-            ("out_deg", "Бірегей алушылар", "клиент"), ("depth", "Буын", "қадам"), ("is_seed", "Бастапқы клиент", ""),
+            ("in_kzt", "Кіріс сомасы", "₸"), ("in_deg", "Өзге бірегей жіберушілер", "клиент"),
+            ("out_deg", "Өзге бірегей алушылар", "клиент"), ("depth", "Буын", "қадам"), ("is_seed", "Бастапқы клиент", ""),
         ):
             node_fact(client, key, label, unit)
 
@@ -207,6 +212,80 @@ def build_evidence(
         warnings.append("Уақыттық үлеске соңғы екі күннің кірістері кірмейді; сол күнгі аударым реті анықталмайды. Орташа күн тек кейінгі шығысы байқалған кірістерге шартты есептеледі.")
         if rows[client]["is_isolated"]:
             warnings.append(f"{alias(client)}: бақыланған аударым жоқ; бұл қауіпсіздік туралы қорытынды емес.")
+        elif rows[client]["self_loop_only"]:
+            warnings.append(f"{alias(client)}: тек өзіне аударым байқалған; өзге клиентпен байланыс жоқ. Рөлге дәлел жеткіліксіз.")
+    elif task in ("seed_paths", "client_flows", "data_completeness"):
+        if cluster_id is not None or gids is not None:
+            raise ValueError("Осы тапсырмаға тек бір gid беріледі")
+        client = _gid(gid, rows) if gid is not None else None
+        if task != "data_completeness" and client is None:
+            raise ValueError("Осы тапсырмаға gid қажет")
+        if client is not None:
+            alias(client)
+            for key, label, unit in (
+                ("in_kzt", "Бақыланған толық кіріс", "₸"),
+                ("out_kzt", "Бақыланған толық шығыс", "₸"),
+                ("in_tx", "Кіріс операциялары", "операция"),
+                ("out_tx", "Шығыс операциялары", "операция"),
+                ("depth", "Буын", "қадам"), ("is_seed", "Бастапқы клиент", ""),
+            ):
+                node_fact(client, key, label, unit)
+        if task == "seed_paths":
+            title = f"Seed-клиенттерден {alias(client)} клиентіне дейінгі жолдар"
+            node_fact(client, "reachable_seed_count", "Бағытталған жолмен жететін өзге seed", "клиент")
+            paths = observed_seed_paths(analysis, client, limit=5)
+            add("Өзге seed-тен ең аз қадам", min((len(path) - 1 for path in paths), default=None), "қадам", "graph.min_other_seed_hops")
+            add("Көрсетілген seed жолдары", len(paths), "жол", "graph.seed_paths_shown")
+            for index, path in enumerate(paths, 1):
+                # Bound each path's payload while preserving the true hop count.
+                visible = path if len(path) <= 12 else path[:6] + [None] + path[-6:]
+                display = " → ".join(alias(node) if node is not None else "…" for node in visible)
+                add(f"Seed жолы {index}", display, "", "graph.seed_path")
+                add(f"Seed жолы {index} · қадам саны", len(path) - 1, "қадам", "graph.seed_path_hops")
+                add(f"Seed жолы {index} · ортасы қысқартылған", len(path) > 12, "", "graph.seed_path_truncated")
+            warnings.append("Әр жететін seed үшін бір ең қысқа құрылымдық жол, ең көбі бес seed көрсетіледі. Он екі клиенттен ұзын жолдың ортасы қысқартылады. Бұл барлық жолдар немесе дәл сол ақшаның уақытпен қозғалысы емес; клиенттің өзі бастапқы seed ретінде саналмайды.")
+        elif task == "client_flows":
+            title = f"{alias(client)} клиентінің бақыланған ақша бағыттары"
+            add("Сұралған бағыт", {"both": "Кіріс және шығыс", "incoming": "Кіріс", "outgoing": "Шығыс"}[direction], "", "request.direction")
+            for incoming in (True, False):
+                if (incoming and direction == "outgoing") or (not incoming and direction == "incoming"):
+                    continue
+                neighbors = (analysis.graph.predecessors(client) if incoming else analysis.graph.successors(client))
+                neighbors = [other for other in neighbors if other != client]
+
+                def edge(other):
+                    return analysis.graph.edges[other, client] if incoming else analysis.graph.edges[client, other]
+
+                ordered = sorted(neighbors, key=lambda other: (-float(edge(other)["sum_kzt"]), other))
+                prefix = "Кіріс" if incoming else "Шығыс"
+                add(f"{prefix} · өзге клиенттер саны", len(ordered), "клиент", "graph.flow_counterparties")
+                add(f"{prefix} · көрсетілген клиенттер", min(len(ordered), 5), "клиент", "graph.flow_shown")
+                for other in ordered[:5]:
+                    source, target = (other, client) if incoming else (client, other)
+                    label = f"{alias(source)} → {alias(target)}"
+                    add(f"{label} · бақыланған сома", float(edge(other)["sum_kzt"]), "₸", "graph.flow_edge_sum_kzt")
+                    add(f"{label} · операциялар", int(edge(other)["n_tx"]), "операция", "graph.flow_edge_n_tx")
+            self_edge = analysis.graph.get_edge_data(client, client)
+            add("Өзіне аударымдардың сомасы", float(self_edge["sum_kzt"]) if self_edge else 0.0, "₸", "graph.self_transfer_sum_kzt")
+            warnings.append("Әр сұралған бағытта жиынтық сомасы ең үлкен бес өзге клиент қана көрсетіледі. Клиенттің толық кіріс/шығыс сомалары барлық бақыланған байланыстар мен өзіне аударымдарды қамтиды. Сомалар шот қалдығы емес.")
+        else:
+            title = f"{alias(client)} клиентінің дерек толықтығы" if client is not None else "Бақыланған желінің дерек толықтығы"
+            selected = [rows[client]] if client is not None else list(rows.values())
+            add("Тексерілген клиенттер", len(selected), "клиент", "observation.selected_nodes")
+            for key, label in (("is_seed", "Кірісі толық емес seed"), ("truncated_by_depth", "Шекарадағы клиенттер"), ("is_isolated", "Байланысы көрінбейтін клиенттер")):
+                add(label, sum(bool(row[key]) for row in selected), "клиент", "observation." + key)
+            requests = ["Бақылау мерзімі мен іріктеу ережесін растау; қажет болса кеңірек мерзімдегі, басқа банктердегі және кейстегі 5 000 ₸ шегінен төмен операцияларды сұрату."]
+            if any(row["is_seed"] for row in selected):
+                requests.append("Seed-клиенттердің толық кіріс операциялары мен қаражат көздерін сұрату.")
+            if any(row["truncated_by_depth"] for row in selected):
+                requests.append("Төртінші буыннан кейінгі шығыс операциялары мен келесі алушыларды сұрату.")
+            if any(row["is_isolated"] for row in selected):
+                requests.append("Байланысы көрінбейтін клиенттердің идентификатор сәйкестігін және толық операциялар үзіндісін тексеру.")
+            if any(int(row["temporal_eligible_in_tx"]) == 0 for row in selected):
+                requests.append("Кірістен кейін кемінде екі толық күнді қамтитын бақылауды кеңейту; уақыттық дәлел жеткіліксіз клиенттер бар.")
+            for index, request in enumerate(requests, 1):
+                add(f"Қосымша дерек сұрауы {index}", request, "", "observation.next_request")
+            warnings.append("Жоқ операциялар ойдан толықтырылмайды. Толық баланс, клиенттің қызметі, төлем мақсаты және расталған рөлдер бұл графта берілмеген. Сұраулар дерек толықтығын тексеруге арналған.")
     elif task == "top_priority":
         if any(value is not None for value in (gid, cluster_id, gids)):
             raise ValueError("Тексеру кезегіне жеке gid немесе кластер берілмейді")

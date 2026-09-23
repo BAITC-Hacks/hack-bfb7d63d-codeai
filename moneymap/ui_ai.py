@@ -15,6 +15,7 @@ from moneymap.ai_response import AIResponseError
 from moneymap.ai_service import request_analysis
 from moneymap.ai_settings import AIConfigError, load_settings
 from moneymap.graph import analyze_dataset
+from moneymap.graph_questions import answer_question, GraphQuestionError, MAX_QUESTION_CHARS
 from moneymap.roles import classify_graph
 from moneymap.ui_state import clear_ai_state
 
@@ -27,6 +28,46 @@ TASKS = {
     "cluster_summary": "Кластерді түсіндіру",
     "common_recipients": "Ортақ алушыларды табу",
 }
+
+
+def _text_question(analysis, roles):
+    st.caption("Қазақша немесе орысша бір сұрақ жазыңыз. Бұл — шектеулі жергілікті сұрақ талдағышы: клиент, топ-1–10, кластер, ортақ алушылар, seed жолдары, кіріс/шығыс және дерек толықтығы. Күн/сома сүзгілері мен еркін күрделі сұрақтар қолдау таппайды.")
+    sample = [str(int(gid)) for gid in roles.details.sort_values("gid").gid[:2]]
+    with st.expander("Қолдау бар сұрақтардың үлгілері"):
+        examples = [
+            f"Неге gid {sample[0]} маңызды?",
+            "Алдымен тексеретін топ 5 клиент",
+            f"Объясни кластер {int(roles.clusters.cluster_id.iloc[0])}",
+            f"Seed-тен gid {sample[0]}-ке жол",
+            f"Кімге gid {sample[0]} ақша жіберді?",
+            f"Каких данных не хватает для gid {sample[0]}?",
+        ]
+        if len(sample) > 1:
+            examples.append(f"{sample[0]} және {sample[1]} ортақ алушыларын көрсет")
+        st.text("\n".join(examples))
+        st.caption("Жауап толық жүктелген кезеңге сүйенеді. Жолдар — құрылымдық байланыстар, рөлдер — тексеру гипотезалары. Түсініксіз сұраққа жауап ойдан жасалмайды.")
+    question = st.text_area("Граф туралы сұрағыңыз", max_chars=MAX_QUESTION_CHARS, key="ai_question", placeholder=examples[0])
+    fingerprint = hashlib.sha256(question.encode("utf-8")).hexdigest()
+    if st.session_state.get("ai_question_fingerprint") != fingerprint:
+        for key in ("ai_question_bundle", "ai_question_error", "ai_output", "ai_error", "ai_output_signature"):
+            st.session_state.pop(key, None)
+        st.session_state.ai_question_fingerprint = fingerprint
+    submitted = st.button("Сұраққа жауап беру · API-сыз", key="ai_ask_question", type="primary")
+    if submitted:
+        for key in ("ai_question_bundle", "ai_question_error", "ai_output", "ai_error"):
+            st.session_state.pop(key, None)
+        try:
+            st.session_state.ai_question_bundle = answer_question(analysis, roles, question)
+        except GraphQuestionError as exc:
+            st.session_state.ai_question_error = str(exc)
+        except (ValueError, TypeError, KeyError):
+            st.session_state.ai_question_error = "Сұрақтағы клиент не кластер осы деректерге сәйкес келмейді. Идентификаторды тексеріңіз немесе дайын тапсырманы таңдаңыз."
+    if st.session_state.get("ai_question_error"):
+        st.info(st.session_state.ai_question_error)
+    bundle = st.session_state.get("ai_question_bundle")
+    if bundle is not None:
+        st.caption("Танылған тапсырма: " + bundle.title + ". Сұрақ мәтіні провайдерге жіберілмейді; қосымша AI түсіндірмесі тек төмендегі фактілерге сүйенеді.")
+    return bundle, submitted
 
 
 def render_ai_tab(validation):
@@ -50,25 +91,32 @@ def render_ai_tab(validation):
         st.info("Жоғарыдағы батырма жергілікті деректерді дайындайды. API кілті қажет емес және сұрау жіберілмейді.")
         return
     analysis, roles = st.session_state.analysis, st.session_state.role_analysis
-    task = st.selectbox("Көмекшіге тапсырма", list(TASKS), format_func=TASKS.get, key="ai_task")
-    arguments = {}
-    if task in ("explain_client", "report_client"):
-        gids = [str(int(gid)) for gid in roles.details.sort_values(["priority_score", "gid"], ascending=[False, True]).gid]
-        preferred = st.session_state.get("map_selected_gid")
-        arguments["gid"] = st.selectbox("Түсіндіретін клиент · gid", gids,
-                                       index=gids.index(preferred) if preferred in gids else 0, key="ai_gid")
-    elif task == "top_priority":
-        arguments["top_n"] = st.slider("Клиент саны", min_value=1, max_value=10, value=5, key="ai_top_n")
-    elif task == "cluster_summary":
-        arguments["cluster_id"] = st.selectbox("Түсіндіретін кластер", roles.clusters.cluster_id.tolist(), key="ai_cluster")
+    mode = st.radio("Сұрақ беру тәсілі", ["Дайын тапсырма", "Сұрақ жазу"], horizontal=True, key="ai_mode")
+    question_submitted = False
+    if mode == "Сұрақ жазу":
+        bundle, question_submitted = _text_question(analysis, roles)
+        if bundle is None:
+            return
     else:
-        entered = st.text_area("Салыстыратын клиенттер · 2–5 gid", key="ai_gids", placeholder="Әр gid-ті жаңа жолға жазыңыз немесе үтірмен бөліңіз.")
-        arguments["gids"] = [value for value in re.split(r"[\s,;]+", entered.strip()) if value]
-    try:
-        bundle = build_evidence(analysis, roles, task, **arguments)
-    except (ValueError, TypeError, KeyError):
-        st.info("Осы тапсырма үшін деректердегі жарамды клиенттерді таңдаңыз. Ортақ алушыларға 2–5 әртүрлі gid қажет.")
-        return
+        task = st.selectbox("Көмекшіге тапсырма", list(TASKS), format_func=TASKS.get, key="ai_task")
+        arguments = {}
+        if task in ("explain_client", "report_client"):
+            gids = [str(int(gid)) for gid in roles.details.sort_values(["priority_score", "gid"], ascending=[False, True]).gid]
+            preferred = st.session_state.get("map_selected_gid")
+            arguments["gid"] = st.selectbox("Түсіндіретін клиент · gid", gids,
+                                           index=gids.index(preferred) if preferred in gids else 0, key="ai_gid")
+        elif task == "top_priority":
+            arguments["top_n"] = st.slider("Клиент саны", min_value=1, max_value=10, value=5, key="ai_top_n")
+        elif task == "cluster_summary":
+            arguments["cluster_id"] = st.selectbox("Түсіндіретін кластер", roles.clusters.cluster_id.tolist(), key="ai_cluster")
+        else:
+            entered = st.text_area("Салыстыратын клиенттер · 2–5 gid", key="ai_gids", placeholder="Әр gid-ті жаңа жолға жазыңыз немесе үтірмен бөліңіз.")
+            arguments["gids"] = [value for value in re.split(r"[\s,;]+", entered.strip()) if value]
+        try:
+            bundle = build_evidence(analysis, roles, task, **arguments)
+        except (ValueError, TypeError, KeyError):
+            st.info("Осы тапсырма үшін деректердегі жарамды клиенттерді таңдаңыз. Ортақ алушыларға 2–5 әртүрлі gid қажет.")
+            return
 
     provider = st.selectbox("AI провайдері", ["openai", "nvidia"], format_func={"openai": "OpenAI", "nvidia": "NVIDIA"}.get, key="ai_provider")
     settings = None
@@ -95,11 +143,13 @@ def render_ai_tab(validation):
         st.dataframe(pd.DataFrame(display_facts), hide_index=True, width="stretch")
         st.download_button("Жергілікті фактілер · JSON", json.dumps({**bundle.public_payload(), "aliases": bundle.aliases}, ensure_ascii=False, indent=2), file_name="moneymap-evidence.json", mime="application/json", key="ai_download_facts")
     st.caption("AI сұрауы таңдалған провайдерге осы тапсырманың қысқаша қаржылық көрсеткіштерін жібереді. Бастапқы Parquet файлдары мен gid сәйкестік кестесі жіберілмейді.")
-    signature = hashlib.sha256(f"{bundle.fingerprint}:{provider}:{settings.model if settings else ''}".encode()).hexdigest()
+    signature = hashlib.sha256(f"{mode}:{bundle.fingerprint}:{provider}:{settings.model if settings else ''}".encode()).hexdigest()
     if st.session_state.get("ai_output_signature") != signature:
         st.session_state.pop("ai_output", None)
         st.session_state.pop("ai_error", None)
         st.session_state.ai_output_signature = signature
+    if question_submitted:
+        st.session_state.ai_output = {"report": local_report(bundle), "local": True}
     left, right = st.columns(2)
     if left.button("Жергілікті есепті ашу · API-сыз", key="ai_local", width="stretch"):
         st.session_state.ai_output = {"report": local_report(bundle), "local": True}

@@ -7,7 +7,7 @@ from moneymap.graph import analyze_dataset
 from moneymap.reports import role_export_files, role_export_zip
 from moneymap.roles import classify_graph
 from moneymap.ui_graph import integer, money, safe_identifiers
-from moneymap.ui_state import clear_map_state, clear_ai_state
+from moneymap.ui_state import clear_map_state, clear_ai_state, clear_investigation_state
 
 
 ROLE_LABELS = {
@@ -38,6 +38,7 @@ def render_roles_tab(validation):
     if st.button("Рөлдер мен басымдықты есептеу", type="primary", key="compute_roles"):
         clear_map_state()
         clear_ai_state()
+        clear_investigation_state()
         for key in ("role_analysis", "role_gid", "role_cluster"):
             st.session_state.pop(key, None)
         with st.spinner("Граф, кластерлер, рөлдер және тексеру кезегі есептеліп жатыр…"):
@@ -109,7 +110,7 @@ def render_roles_tab(validation):
         - **Таратушы:** көптеген бірегей алушыға шығыс бар.
         - **Жинақтаушы:** бірнеше жіберушіден кіріс бар, көрінетін шығыс/кіріс қатынасы төмен.
         - **Транзит:** көрінетін кіріс пен шығыс сомалары жақын. Бұл дәл сол ақша өткенінің дәлелі емес.
-        - **Бақыланған соңғы алушы:** кіріс бар, шығыс осы кезеңде байқалмаған; seed пен 4-буын бұған кірмейді.
+        - **Бақыланған соңғы алушы:** кіріс бар, өзге клиентке шығыс осы кезеңде байқалмаған; seed пен 4-буын бұған кірмейді.
         - **Периферия / дерек жеткіліксіз:** жоғарыдағы ережелер орындалмаған немесе бақылау шектеулі. Бұл «қауіпсіз» деген белгі емес.
         """)
         st.write("Бірнеше ереже орындалса: үйлестіруші → таратушы → жинақтаушы → транзит → соңғы алушы ретімен негізгі рөл таңдалады. 4-буын және оқшау түйін алдымен шектеулі дерек ретінде белгіленеді.")
@@ -129,6 +130,7 @@ def _render_role_detail(result, gid_text):
     st.write(f"Кіріс: **{money(row.in_kzt)}** · шығыс: **{money(row.out_kzt)}**. Жіберушілер: **{integer(row.in_deg)}**, алушылар: **{integer(row.out_deg)}**, жететін өзге seed: **{integer(row.reachable_seed_count)}**.")
     ratio = "анықталмаған" if pd.isna(row.observed_flow_ratio) else f"{row.observed_flow_ratio:.4f}"
     st.caption(f"Буын: {int(row.depth)} · көрінетін шығыс/кіріс: {ratio} · аралық орталықтық: {row.betweenness:.8f} · PageRank: {row.pagerank:.8f}.")
+    st.caption("Жіберушілер мен алушылар саны өзге клиенттерді ғана санайды; өзіне аударымдар сомалар мен операциялар санында сақталады.")
     rules = result.config["rules"]
     cutoff = result.summary["thresholds"]["coordinator_betweenness_cutoff"]
     gate_text = {
@@ -136,7 +138,7 @@ def _render_role_detail(result, gid_text):
         "distributor": f"Бақылау шекарасынан тыс емес клиенттің бірегей алушылары ≥{rules['distributor_min_out_deg']}.",
         "consolidator": f"Жіберушілер ≥{rules['consolidator_min_in_deg']}, көрінетін шығыс/кіріс ≤{rules['consolidator_max_ratio']}; seed емес, буын <4.",
         "transit": f"Екі бағыт та бар, көрінетін шығыс/кіріс {rules['transit_min_ratio']}–{rules['transit_max_ratio']} аралығында; seed емес, буын <4.",
-        "terminal": "Көрінетін кіріс >0, шығыс байланысы 0; seed емес, буын <4; жоғары тұрған ережелер орындалмаған.",
+        "terminal": "Көрінетін кіріс >0, өзге клиентке шығыс байланысы 0; seed емес, буын <4; жоғары тұрған ережелер орындалмаған.",
         "peripheral": "Бақылау шектеулі немесе басым рөлдердің ережелері орындалмаған. Қосымша дерек қажет болуы мүмкін.",
     }
     st.write("**Орындалған ереже:** " + gate_text[row.role])

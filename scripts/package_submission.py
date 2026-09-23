@@ -23,7 +23,7 @@ from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = (
-    "README.md", "app.py", "requirements.txt", "setup.ps1", "start.ps1",
+    "README.md", "app.py", "requirements.txt", "setup.ps1", "start.ps1", "run.ps1",
     ".env.example", ".gitignore", ".streamlit/config.toml",
 )
 DIRECTORY_SUFFIXES = {

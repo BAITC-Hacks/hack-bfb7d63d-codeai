@@ -37,6 +37,7 @@ def main():
     pipeline.add_argument("--out", type=Path, default=Path("output/stage3"))
     pipeline.add_argument("--config", type=Path, help="Optional role thresholds and scoring configuration JSON")
     pipeline.add_argument("--top-n", type=int, default=30, help="At least 20; smaller datasets export all nodes")
+    pipeline.add_argument("--extended", action="store_true", help="Also export routes, anomalies, intercluster flows, coverage and removal scenarios")
     args = parser.parse_args()
     if args.command == "demo":
         files = create_demo_files()
@@ -72,6 +73,10 @@ def main():
                 export_role_analysis(roles, args.out, metadata)
                 metadata["raw_to_csv_seconds"] = round(perf_counter() - started, 6)
                 (args.out / "run_report.json").write_bytes(role_export_files(roles, metadata)["run_report.json"])
+                if args.extended:
+                    from moneymap.extended_reports import export_extended_analysis
+                    export_extended_analysis(computed, roles, result.frames, args.out / "extended", metadata["input_sha256"])
+                    print(f"Extended reports: {(args.out / 'extended').resolve()}")
                 print(f"PASS: {len(roles.nodes_roles)} nodes, {len(roles.clusters)} clusters, top {len(roles.top_nodes)}")
                 print(f"Raw Parquet to CSV: {metadata['raw_to_csv_seconds']:.2f}s")
                 print(f"Stage 3 reports: {args.out.resolve()}")

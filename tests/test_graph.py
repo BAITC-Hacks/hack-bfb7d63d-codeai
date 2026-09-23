@@ -70,6 +70,28 @@ def test_components_are_weak_connectivity_not_communities(network):
     assert result.components.iloc[2]["is_isolated"]
 
 
+def test_self_transfers_preserve_money_without_adding_counterparties():
+    frames = dataset([(1, 0, True), (2, 1, False), (3, 1, False), (4, 0, True)], [
+        (1, 2, "2026-07-01", 10_000), (1, 2, "2026-07-02", 15_000),
+        (2, 1, "2026-07-02", 5_000), (2, 2, "2026-07-03", 7_000),
+        (3, 3, "2026-07-03", 11_000),
+    ])
+    result = analyze_dataset(frames)
+    nodes = result.nodes.set_index("gid")
+    assert nodes.loc[2, "in_deg"] == nodes.loc[2, "out_deg"] == 1
+    assert nodes.loc[2, "in_kzt"] == 32_000
+    assert nodes.loc[2, "out_kzt"] == 12_000
+    assert nodes.loc[2, "in_tx"] == 3 and nodes.loc[2, "out_tx"] == 2
+    assert nodes.loc[3, "in_deg"] == nodes.loc[3, "out_deg"] == 0
+    assert not nodes.loc[3, "is_isolated"]
+    assert nodes.loc[3, "in_kzt"] == nodes.loc[3, "out_kzt"] == 11_000
+    assert nodes.loc[4, "is_isolated"]
+    assert result.graph.has_edge(2, 2) and result.graph.has_edge(3, 3)
+    assert nodes["in_kzt"].sum() == nodes["out_kzt"].sum() == 48_000
+    assert result.components["sum_kzt_internal"].sum() == 48_000
+    assert result.summary["max_in_degree"] == result.summary["max_out_degree"] == 1
+
+
 def test_reachable_seed_counts_exclude_self_even_through_cycles(network):
     result = analyze_dataset(network)
     nodes = result.nodes.set_index("gid")

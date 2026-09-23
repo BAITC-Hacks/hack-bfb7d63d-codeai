@@ -164,9 +164,9 @@ def _role_strength(role: str, row: dict, rules: dict, scores: dict) -> float:
 
 def _evidence(role: str, row: dict) -> str:
     if row["is_isolated"]:
-        return "Байланыс жоқ; рөлді анықтауға бақылау жеткіліксіз." + (" Seed кірісі толық емес." if row["is_seed"] else "")
+        return "Кіріс=0 ₸; шығыс=0 ₸; байланыс=0. Рөлді анықтауға бақылау жеткіліксіз." + (" Seed кірісі толық емес." if row["is_seed"] else "")
     if row["self_loop_only"]:
-        return "Тек өзіне аударым байқалған; өзге клиентпен байланыс жоқ. Рөлге дәлел жеткіліксіз." + (" Seed кірісі толық емес." if row["is_seed"] else "")
+        return f"Өзіне аударым={row['out_tx']}; өзге клиентпен байланыс жоқ (0). Рөлге дәлел жеткіліксіз." + (" Seed кірісі толық емес." if row["is_seed"] else "")
     facts = f"Кіріс көрші={row['in_deg']}, шығыс көрші={row['out_deg']}; seed-жету={row['reachable_seed_count']}. "
     if row["depth"] == 4:
         return facts + "Depth=4: шығыс бақылауы шектелген, рөлге дәлел жеткіліксіз."
@@ -175,7 +175,7 @@ def _evidence(role: str, row: dict) -> str:
     elif role in ("consolidator", "transit"):
         finding = f"Бақыланған шығыс/кіріс={row['observed_flow_ratio']:.2f}; {ROLE_LABELS[role]} белгісі."
     elif role == "terminal":
-        finding = "Шығыс байқалмады; осы кезеңдегі соңғы алушы гипотезасы."
+        finding = "Өзге клиентке шығыс байқалмады; осы кезеңдегі соңғы алушы гипотезасы."
     elif role == "distributor":
         finding = "Көп алушыға тарату белгісі."
     else:
@@ -299,6 +299,7 @@ def classify_graph(analysis: AnalysisResult, config: dict | None = None, top_n: 
         "internal_turnover_kzt": math.fsum(clusters["sum_kzt_internal"]),
         "methods": {
             "role_order": list(ROLE_ORDER),
+            "counterparties": "in_deg/out_deg count distinct other clients; self transfers remain in financial totals and graph edges",
             "clustering": "Weighted Louvain on sorted undirected projection; reciprocal amounts summed; self loops excluded only for clustering; isolates retained; canonical IDs by size then minimum gid",
             "priority": "Weighted sum independent of role and role_score; all isolated-node contributions are zero",
             "normalization": "min(log1p(x)/log1p(positive-value p95), 1); configured quantile used; zero when no positive values",
@@ -318,7 +319,7 @@ def classify_graph(analysis: AnalysisResult, config: dict | None = None, top_n: 
             "Seed incoming and depth-4 outgoing observations are incomplete; their flow ratios are excluded from role rules.",
             "Depth-4 and isolated clients receive peripheral because evidence is insufficient; boundary structural priority can remain high.",
             "Clients with only self transfers receive peripheral because there is no observed external-counterparty structure; monetary/centrality observations remain in priority.",
-            "Coordinator means structural candidate, not proof of an organizer; terminal means no observed outgoing transfer in this window.",
+            "Coordinator means structural candidate, not proof of an organizer; terminal means no observed outgoing transfer to another client in this window.",
             "Cross-community neighbor count is supporting context, not a coordinator gate.",
             "No labeled ground truth is supplied; accuracy and calibrated probability are not claimed.",
             "Community membership depends on the supplied window, weighted projection and configured Louvain parameters.",

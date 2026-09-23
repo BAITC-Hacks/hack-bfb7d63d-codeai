@@ -90,6 +90,37 @@ def test_seed_boundary_and_isolated_clients_retain_observation_limits(network):
     assert json.loads(json.dumps(isolated.public_payload(), allow_nan=False))
 
 
+def test_self_transfers_remain_money_but_not_external_counterparties_in_ai_facts(network):
+    _, analysis, roles = network
+    bundle = build_evidence(analysis, roles, "explain_client", gid=BASE + 1)
+    assert value(bundle, "graph.in_deg", "C001") == 0
+    assert value(bundle, "graph.out_deg", "C001") == 2
+    assert value(bundle, "graph.in_kzt", "C001") == 9
+    assert value(bundle, "graph.out_kzt", "C001") == 36
+    assert value(bundle, "graph.in_tx", "C001") == 1
+    assert value(bundle, "graph.out_tx", "C001") == 4
+    for task, arguments in (("explain_client", {"gid": BASE + 1}), ("top_priority", {"top_n": 6})):
+        facts = build_evidence(analysis, roles, task, **arguments)
+        assert all("Өзге бірегей" in fact["label"] for fact in facts.facts if fact["source"] in {"graph.in_deg", "graph.out_deg"})
+        assert any("Өзіне аударымдар сомалар мен операциялар санында сақталады" in warning for warning in facts.warnings)
+
+
+def test_self_only_client_has_explicit_ai_context_without_becoming_isolated():
+    analysis = analyze_dataset(dataset(
+        [(1, 0, True), (2, 1, False)], [(2, 2, "2026-07-01", 5_000)],
+    ))
+    roles = classify_graph(analysis)
+    for task in ("explain_client", "report_client"):
+        bundle = build_evidence(analysis, roles, task, gid=BASE + 2)
+        assert value(bundle, "graph.is_isolated", "C001") is False
+        assert value(bundle, "graph.in_deg", "C001") == value(bundle, "graph.out_deg", "C001") == 0
+        assert value(bundle, "graph.in_kzt", "C001") == value(bundle, "graph.out_kzt", "C001") == 5_000
+        assert any("C001: тек өзіне аударым байқалған" in warning for warning in bundle.warnings)
+        assert not any("C001: бақыланған аударым жоқ" in warning for warning in bundle.warnings)
+        assert str(BASE + 2) not in json.dumps(bundle.public_payload(), ensure_ascii=False)
+        assert "тек өзіне аударым" in local_report(bundle)
+
+
 def test_public_payload_never_includes_private_ids_or_free_form_source_text(network):
     _, analysis, roles = network
     poisoned = deepcopy(roles)

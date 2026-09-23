@@ -7,7 +7,7 @@ import streamlit as st
 
 from moneymap.graph import analyze_dataset, observed_seed_paths
 from moneymap.reports import analysis_summary
-from moneymap.ui_state import clear_map_state, clear_ai_state
+from moneymap.ui_state import clear_map_state, clear_ai_state, clear_investigation_state
 
 
 def safe_identifiers(frame):
@@ -36,6 +36,7 @@ def render_graph_tab(validation):
     if st.button("Граф көрсеткіштерін есептеу", type="primary", key="compute_graph"):
         clear_map_state()
         clear_ai_state()
+        clear_investigation_state()
         for key in ("analysis", "role_analysis", "role_gid", "role_cluster"):
             st.session_state.pop(key, None)
         with st.spinner("Граф, бастапқы клиенттермен байланыстар және күндік көрсеткіштер есептеліп жатыр…"):
@@ -88,6 +89,7 @@ def render_graph_tab(validation):
     with st.expander("Көрсеткіштер қалай есептеледі?"):
         st.markdown("""
         - **Кіріс/шығыс:** тек берілген графтағы сомалар және операциялар саны.
+        - **Жіберушілер/алушылар саны:** өзге клиенттердің саны; өзіне аударым жеке қарсы тарап болып саналмайды. Оның сомасы мен операциялары сақталады.
         - **PageRank:** ақша сомасымен салмақталған бағытталған байланыстар көрсеткіші.
         - **Посредниктік орталықтық:** бағытталған ең қысқа жолдардағы аралық орын. Сома қашықтық ретінде қолданылмайды.
         - **Жететін seed саны:** клиентке бағытталған жолмен жететін өзге бастапқы клиенттер саны. Түйін өзі есептелмейді.

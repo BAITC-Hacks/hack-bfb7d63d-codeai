@@ -96,6 +96,9 @@ def analyze_dataset(frames: dict[str, pd.DataFrame]) -> AnalysisResult:
     safe integer limit. Consumers must serialize IDs as strings for a browser.
     Components mean weak connectivity, not detected communities. Components
     are numbered from 1 by decreasing size, then by their smallest client ID.
+    ``in_deg``/``out_deg`` count distinct other clients, excluding self transfers.
+    Self transfers remain in the graph, monetary totals and transaction counts;
+    a client with only self transfers is not an unobserved isolated client.
 
     Betweenness is exact, directed, unweighted and normalized. Monetary weights
     are used for PageRank only; an amount is not a shortest-path distance.
@@ -136,8 +139,9 @@ def analyze_dataset(frames: dict[str, pd.DataFrame]) -> AnalysisResult:
         })
     component_table = pd.DataFrame(component_rows)
     nodes["component_id"] = nodes["gid"].map(component_ids).astype("int64")
-    nodes["in_deg"] = nodes["gid"].map(dict(graph.in_degree())).astype("int64")
-    nodes["out_deg"] = nodes["gid"].map(dict(graph.out_degree())).astype("int64")
+    # A self transfer must not create another payer or recipient for role gates.
+    nodes["in_deg"] = nodes["gid"].map({gid: degree - int(graph.has_edge(gid, gid)) for gid, degree in graph.in_degree()}).astype("int64")
+    nodes["out_deg"] = nodes["gid"].map({gid: degree - int(graph.has_edge(gid, gid)) for gid, degree in graph.out_degree()}).astype("int64")
     for column, by, value, dtype in (
         ("in_kzt", "dst", "sum_kzt", "float64"),
         ("out_kzt", "src", "sum_kzt", "float64"),
@@ -157,7 +161,7 @@ def analyze_dataset(frames: dict[str, pd.DataFrame]) -> AnalysisResult:
     nodes["observed_flow_ratio"] = nodes["out_kzt"].div(nodes["in_kzt"].where(nodes["in_kzt"].gt(0)))
     nodes["truncated_by_depth"] = nodes["depth"].eq(4)
     nodes["ratio_usable"] = nodes["in_kzt"].gt(0) & ~nodes["is_seed"] & ~nodes["truncated_by_depth"]
-    nodes["is_isolated"] = nodes["in_deg"].eq(0) & nodes["out_deg"].eq(0)
+    nodes["is_isolated"] = nodes["gid"].map(dict(graph.degree())).eq(0)
 
     reach_count = dict.fromkeys(graph, 0)
     min_hops: dict[int, int] = {}
