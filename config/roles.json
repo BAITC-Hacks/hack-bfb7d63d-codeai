@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "clustering": {"seed": 42, "resolution": 1.0, "threshold": 0.0000001},
+  "rules": {
+    "coordinator_min_in_deg": 3,
+    "coordinator_min_out_deg": 3,
+    "coordinator_min_seed_reach": 2,
+    "coordinator_betweenness_quantile": 0.9,
+    "distributor_min_out_deg": 10,
+    "consolidator_min_in_deg": 5,
+    "consolidator_max_ratio": 0.3,
+    "transit_min_ratio": 0.8,
+    "transit_max_ratio": 1.2
+  },
+  "priority": {
+    "normalizer_quantile": 0.95,
+    "weights": {
+      "consolidation": 0.25,
+      "in_kzt": 0.15,
+      "in_deg": 0.15,
+      "betweenness": 0.15,
+      "seed_reach": 0.15,
+      "out_deg": 0.1,
+      "pagerank": 0.05
+    }
+  },
+  "scores": {"general_cap": 0.9, "seed_cap": 0.7, "terminal_cap": 0.55, "boundary_cap": 0.25}
+}

@@ -1,0 +1,76 @@
+:root{color-scheme:light;--ink:#14364b;--muted:#577082;--line:#dbe5eb;--teal:#136f83;--soft:#f3f7f9;--focus:#087e95}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;background:#fff;color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{overflow-x:hidden}
+main{width:100%;min-width:0;padding:2px 1px 8px}
+[hidden]{display:none!important}
+p{margin:0}
+.heading-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.graph-stats{font-weight:650;font-size:14px}
+.physics-status{font-size:12px;color:var(--muted)}
+.toolbar,.button-group{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.toolbar{justify-content:space-between;margin-bottom:12px}
+button,input,select{font:inherit}
+button{min-height:36px;border:1px solid #c7d7e1;border-radius:7px;padding:6px 11px;background:#fff;color:var(--ink);cursor:pointer}
+button:hover:enabled{background:#eaf3f6;border-color:#89b3bf}
+button:disabled{cursor:default;color:#81939e;background:#f5f7f8;border-color:#e5ebee}
+button:focus-visible,input:focus-visible,select:focus-visible,#network:focus-visible{outline:3px solid #7fd2e3;outline-offset:2px}
+button#zoom-in,button#zoom-out{font-size:20px;min-width:38px;padding:1px 9px}
+.search-row{margin:0 0 10px}
+label{display:block;font-size:12px;font-weight:650;margin-bottom:4px}
+.search-controls{display:flex;gap:7px;max-width:510px;min-width:0}
+input,select{border:1px solid #c7d7e1;border-radius:7px;color:var(--ink);background:#fff;min-height:37px;padding:7px 10px;width:100%;min-width:0}
+input{font-variant-numeric:tabular-nums}
+.search-controls button{background:var(--teal);color:#fff;border-color:var(--teal);padding-inline:18px}
+.search-controls button:hover:enabled{background:#105a6b}
+.search-feedback{font-size:12px;color:var(--muted);min-height:0;margin-top:4px;overflow-wrap:anywhere}
+.search-feedback:empty{margin-top:0}
+.scope-note{padding:8px 10px;border:1px solid #e4cd95;border-radius:7px;background:#fff9ed;color:#6d501a;font-size:12px;margin-bottom:10px}
+.graph-shell{position:relative;height:520px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:linear-gradient(135deg,#fcfdfe,#f4f8fa)}
+#network{width:100%;height:100%;min-width:0;touch-action:pan-y}
+#network canvas{display:block}
+.graph-loading{position:absolute;top:10px;left:10px;max-width:calc(100% - 20px);font-size:12px;background:#fffffff0;color:var(--teal);padding:7px 10px;border:1px solid #c4dfe6;border-radius:7px;pointer-events:none}
+.graph-error{position:absolute;inset:20px;display:flex;align-items:center;justify-content:center;text-align:center;background:#fff8f7;border:1px solid #efc9c1;border-radius:8px;color:#963d2e;padding:20px}
+.graph-help{color:var(--muted);font-size:12px;margin-top:8px;overflow-wrap:anywhere}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:12px 0 14px;max-height:125px;overflow-y:auto;padding:1px 1px 5px}
+.legend-title{flex-basis:100%;font-size:12px;font-weight:650;color:var(--muted)}
+.legend-item{display:inline-flex;align-items:center;gap:6px;font-size:12px;max-width:100%;overflow-wrap:anywhere}
+.cluster-legend{width:100%;min-width:0}
+.cluster-legend summary{cursor:pointer;font-size:12px;font-weight:650;color:var(--muted)}
+.cluster-legend summary:focus-visible{outline:3px solid #7fd2e3;outline-offset:2px}
+.legend-items{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:9px;max-height:100px;overflow-y:auto;padding:2px}
+.legend-color{display:inline-block;width:11px;height:11px;border-radius:50%;border:1px solid #ffffff80;box-shadow:0 0 0 1px #18384a26;flex:none}
+.accessible-selection{padding-top:10px;border-top:1px solid var(--line)}
+.accessible-selection select{max-width:100%;font-size:13px}
+.selected-card{border:1px solid #bdd8e1;border-left:4px solid var(--teal);background:#f5fafb;border-radius:8px;padding:11px 13px;margin-top:12px;overflow-wrap:anywhere}
+.selected-card p+p{margin-top:5px}
+.selected-id{font-variant-numeric:tabular-nums;font-weight:700}
+#selected-role,#selected-flows,#selected-evidence{font-size:12px}
+.vis-tooltip{max-width:min(360px,calc(100vw - 24px));white-space:normal!important;background:#fff!important;color:var(--ink)!important;border:1px solid #b8ccd7!important;border-radius:8px!important;box-shadow:0 5px 18px #193e5029!important;font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;padding:10px 12px!important;overflow-wrap:anywhere;pointer-events:none}
+.tooltip-title{font-weight:700;margin-bottom:5px;font-variant-numeric:tabular-nums}
+.tooltip-line+.tooltip-line{margin-top:3px}
+@media(max-width:520px){.graph-shell{height:480px}.toolbar{gap:8px}.heading-row{gap:5px}.graph-stats{font-size:13px}.physics-status{font-size:11px}.legend{gap:6px 10px;max-height:145px}button{font-size:12px;min-height:36px}.search-controls{max-width:none}.selected-card{padding:10px}.graph-help{font-size:11px}}
+
+/* Match the analyst workspace while keeping graph controls local and offline. */
+:root{--ink:#182b42;--muted:#687b8e;--line:#dfe7ef;--teal:#0d887e;--soft:#f6f8fc;--focus:#0d887e}
+html,body{background:#fff;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{padding:3px 1px 8px}
+.heading-row{padding:0 2px;margin-bottom:12px}
+.graph-stats{font-size:13px;letter-spacing:.01em}
+.physics-status{font-size:11px}
+.toolbar{margin-bottom:10px}
+button{border-color:var(--line);border-radius:9px;min-height:34px;padding:6px 12px;font-size:12px;font-weight:550}
+button:hover:enabled{background:#edf8f6;border-color:#9bd5cb}
+.graph-shell{height:540px;border-radius:14px;background-color:#f8fafc;background-image:radial-gradient(#bac9d74a .7px,transparent .7px);background-size:18px 18px}
+.graph-loading{border-radius:9px;border-color:#bce0d9;color:#176e65;box-shadow:0 3px 10px #14273809}
+.legend{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafcfe;gap:8px 16px;margin:12px 0}
+.legend-title{color:var(--ink);font-weight:600}
+.legend-item{font-size:11px}
+.legend-color{width:9px;height:9px}
+.accessible-selection{padding:12px 2px 0}
+.accessible-selection select{border-radius:9px;min-height:38px;background:#fafcfe}
+.search-row{display:none}
+.selected-card{display:none}
+.scope-note{border-radius:9px}
+.graph-help{font-size:11px;line-height:1.6}
+@media(max-width:520px){.graph-shell{height:440px}.legend{padding:8px 10px}.physics-status{max-width:100%}}

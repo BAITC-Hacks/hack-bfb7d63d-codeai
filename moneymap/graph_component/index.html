@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="kk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoneyMap · Ақша ағынының графы</title>
+  <link rel="stylesheet" href="vendor/vis-network.css">
+  <link rel="stylesheet" href="graph.css">
+  <script defer src="vendor/vis-network.min.js"></script>
+  <script defer src="graph.js"></script>
+</head>
+<body>
+  <main id="graph-component" aria-label="Ақша ағынының интерактивті графы">
+    <div class="heading-row">
+      <p id="graph-stats" class="graph-stats">Граф деректері күтілуде…</p>
+      <span id="physics-status" class="physics-status" role="status"></span>
+    </div>
+    <p id="scope-note" class="scope-note" hidden></p>
+    <div class="toolbar" aria-label="Графты басқару">
+      <div class="button-group">
+        <button id="zoom-in" type="button" aria-label="Графты үлкейту" title="Графты үлкейту">＋</button>
+        <button id="zoom-out" type="button" aria-label="Графты кішірейту" title="Графты кішірейту">−</button>
+        <button id="fit-graph" type="button">Барлығын сыйғызу</button>
+      </div>
+      <button id="freeze-graph" type="button" disabled>Орналасуды бекіту</button>
+    </div>
+    <form id="gid-search" class="search-row">
+      <label for="gid-input">Көрінетін клиентті gid бойынша табу</label>
+      <div class="search-controls">
+        <input id="gid-input" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="Толық gid енгізіңіз" aria-describedby="search-feedback">
+        <button type="submit">Табу</button>
+      </div>
+      <p id="search-feedback" class="search-feedback" role="status" aria-live="polite"></p>
+    </form>
+    <div id="graph-shell" class="graph-shell">
+      <div id="network" tabindex="0" role="img" aria-label="Бағытталған ақша аударымдары. Түйінді басыңыз немесе төмендегі клиент тізімін қолданыңыз."></div>
+      <div id="graph-error" class="graph-error" role="alert" hidden></div>
+      <div id="graph-loading" class="graph-loading" role="status" hidden>Түйіндер орналастырылуда…</div>
+    </div>
+    <p class="graph-help">Көрсеткі ақшаны алушыға бағытталған. Сызық жуандығы — аударым сомасы. Ромб — seed; үзік жиек — 4-қадам шекарасы; қалың жиек — таңдалған клиент.</p>
+    <div id="legend" class="legend" aria-label="Граф түстерінің түсіндірмесі"></div>
+    <div class="accessible-selection">
+      <label for="node-select">Көрінетін клиенттер тізімі</label>
+      <select id="node-select" aria-describedby="select-help"><option value="">Клиентті таңдаңыз</option></select>
+      <p id="select-help" class="graph-help">Тізімнен таңдау графтағы түйінді басумен бірдей. Бұл тізім ағымдағы көрініспен шектелген.</p>
+    </div>
+    <section id="selected-card" class="selected-card" aria-label="Таңдалған клиент" aria-live="polite" hidden>
+      <p id="selected-id" class="selected-id"></p>
+      <p id="selected-role"></p>
+      <p id="selected-flows"></p>
+      <p id="selected-evidence"></p>
+    </section>
+  </main>
+</body>
+</html>
