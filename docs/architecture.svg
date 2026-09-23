@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="840" viewBox="0 0 1280 840" role="img" aria-labelledby="title description">
+  <title id="title">MoneyMap жүйесінің архитектурасы</title>
+  <desc id="description">Үш Parquet файлы жергілікті тексеруден өтеді. NetworkX бағытталған граф пен көрсеткіштерді есептейді. Рөл ережелері, Louvain кластерлері және тәуелсіз басымдық Streamlit картасына және ТЗ талап еткен үш CSV файлына беріледі. Қосымша AI тармағы тек таңдалған фактілер мен уақытша клиент белгілерін пайдаланады. Қазіргі кілтсіз режимде жергілікті есеп дайындалады, нақты API тексерілген жоқ.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1L9 5L1 9" fill="none" stroke="#287B87" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+    <marker id="optional-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1L9 5L1 9" fill="none" stroke="#648693" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+    <style>
+      text { font-family: 'Segoe UI', Arial, sans-serif; }
+      .title { font-size: 21px; font-weight: 650; fill: #142D44; }
+      .body { font-size: 17px; fill: #344F63; }
+      .small { font-size: 14px; fill: #527083; }
+      .mono { font-family: Consolas, 'Courier New', monospace; font-size: 16px; fill: #23475F; }
+      .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 1.2px; fill: #477284; }
+      .line { fill: none; stroke: #287B87; stroke-width: 2.5; marker-end: url(#arrow); }
+      .optional-line { fill: none; stroke: #648693; stroke-width: 2; stroke-dasharray: 5 5; marker-end: url(#optional-arrow); }
+    </style>
+  </defs>
+  <rect width="1280" height="840" fill="#F4F7FB"/>
+  <rect width="1280" height="99" fill="#10283F"/>
+  <rect x="40" y="28" width="5" height="45" rx="2.5" fill="#52D8C4"/>
+  <text x="61" y="49" font-size="31" font-weight="700" fill="#FFFFFF">MoneyMap · жүйе архитектурасы</text>
+  <text x="61" y="78" font-size="16" fill="#BDD0DF">Бақыланған аударымдар → түсіндірілетін талдау → тексеруге арналған нәтиже</text>
+  <rect x="986" y="28" width="254" height="42" rx="21" fill="#1E5864"/>
+  <circle cx="1010" cy="49" r="5" fill="#52D8C4"/>
+  <text x="1026" y="55" font-size="16" font-weight="600" fill="#EAFBFA">Жергілікті аналитика</text>
+
+  <text x="40" y="127" class="eyebrow">НЕГІЗГІ ЕСЕПТЕУ · PYTHON / PANDAS / NETWORKX</text>
+
+  <rect x="40" y="148" width="242" height="230" rx="16" fill="#FFFFFF" stroke="#D3DFE8"/>
+  <rect x="40" y="148" width="242" height="5" rx="2.5" fill="#136F83"/>
+  <circle cx="68" cy="185" r="15" fill="#E0F2F2"/>
+  <text x="68" y="190" text-anchor="middle" font-size="14" font-weight="700" fill="#136F83">1</text>
+  <text x="94" y="192" class="title">Кіріс деректері</text>
+  <text x="62" y="234" class="mono">nodes.parquet</text>
+  <text x="62" y="265" class="mono">edges.parquet</text>
+  <text x="62" y="296" class="mono">transactions.parquet</text>
+  <line x1="62" y1="318" x2="260" y2="318" stroke="#E3EAF0"/>
+  <text x="62" y="346" class="small">Шикі файлдар өзгермейді</text>
+
+  <path d="M290 262H316" class="line"/>
+  <rect x="324" y="148" width="242" height="230" rx="16" fill="#FFFFFF" stroke="#D3DFE8"/>
+  <rect x="324" y="148" width="242" height="5" rx="2.5" fill="#136F83"/>
+  <circle cx="352" cy="185" r="15" fill="#E0F2F2"/>
+  <text x="352" y="190" text-anchor="middle" font-size="14" font-weight="700" fill="#136F83">2</text>
+  <text x="378" y="192" class="title">Тексеру</text>
+  <text x="346" y="234" class="body">Схема және дәл int64</text>
+  <text x="346" y="265" class="body">Сома / n_tx сәйкестігі</text>
+  <text x="346" y="296" font-size="16" fill="#344F63">Қате болса, есеп тоқтайды</text>
+  <line x1="346" y1="318" x2="544" y2="318" stroke="#E3EAF0"/>
+  <text x="346" y="346" class="small">Қайталанған жолдар сақталады</text>
+
+  <path d="M574 262H600" class="line"/>
+  <rect x="608" y="148" width="274" height="230" rx="16" fill="#FFFFFF" stroke="#D3DFE8"/>
+  <rect x="608" y="148" width="274" height="5" rx="2.5" fill="#136F83"/>
+  <circle cx="636" cy="185" r="15" fill="#E0F2F2"/>
+  <text x="636" y="190" text-anchor="middle" font-size="14" font-weight="700" fill="#136F83">3</text>
+  <text x="662" y="192" font-size="20" font-weight="650" fill="#142D44">Граф көрсеткіштері</text>
+  <text x="630" y="234" font-size="16" fill="#344F63">NetworkX · бағытталған граф</text>
+  <text x="630" y="265" font-size="16" fill="#344F63">Ақша, көршілер, seed жолдары</text>
+  <text x="630" y="296" font-size="16" fill="#344F63">Орталықтық · уақыттық белгілер</text>
+  <line x1="630" y1="318" x2="860" y2="318" stroke="#E3EAF0"/>
+  <text x="630" y="346" class="small">Барлық түйін, оқшаулар да бар</text>
+
+  <path d="M890 262H916" class="line"/>
+  <rect x="924" y="148" width="316" height="230" rx="16" fill="#FFFFFF" stroke="#D3DFE8"/>
+  <rect x="924" y="148" width="316" height="5" rx="2.5" fill="#136F83"/>
+  <circle cx="952" cy="185" r="15" fill="#E0F2F2"/>
+  <text x="952" y="190" text-anchor="middle" font-size="14" font-weight="700" fill="#136F83">4</text>
+  <text x="978" y="192" font-size="20" font-weight="650" fill="#142D44">Рөлдер және басымдық</text>
+  <text x="946" y="234" class="body">Louvain кластерлері</text>
+  <text x="946" y="265" class="body">Ережелер → рөл болжамы</text>
+  <text x="946" y="296" class="body">Тәуелсіз тексеру ұпайы</text>
+  <line x1="946" y1="318" x2="1218" y2="318" stroke="#E3EAF0"/>
+  <text x="946" y="346" class="mono">config/roles.json</text>
+
+  <path d="M650 378V410" class="line"/>
+  <path d="M975 378V397H730V410" class="line"/>
+  <path d="M1118 378V410" class="line"/>
+
+  <rect x="40" y="420" width="710" height="137" rx="16" fill="#E5F2F4" stroke="#BCDCE1"/>
+  <text x="62" y="455" class="title">Streamlit · талдаушының жұмыс орны</text>
+  <text x="62" y="487" class="body">vis-network карта · клиент карточкасы · сүзгі · іздеу</text>
+  <text x="62" y="532" class="small">Карта сүзгісі жалпы көрсеткіштерді өзгертпейді</text>
+  <rect x="541" y="513" width="187" height="28" rx="14" fill="#FFFFFF"/>
+  <text x="634" y="532" text-anchor="middle" font-family="Consolas, monospace" font-size="14" fill="#136F83">127.0.0.1:8501</text>
+
+  <rect x="806" y="420" width="434" height="137" rx="16" fill="#E5F2F4" stroke="#BCDCE1"/>
+  <text x="828" y="455" class="title">ТЗ нәтижелері · үш CSV</text>
+  <text x="828" y="486" font-family="Consolas, monospace" font-size="15" fill="#23475F">nodes_roles.csv · clusters.csv</text>
+  <text x="828" y="512" font-family="Consolas, monospace" font-size="15" fill="#23475F">top_nodes.csv + run_report.json</text>
+  <text x="828" y="539" class="small">CLI және вебтен жүктеу</text>
+
+  <path d="M94 557V586" class="optional-line"/>
+  <text x="109" y="580" font-size="12" fill="#648693">Таңдалған тапсырма мен есептелген фактілер</text>
+  <rect x="40" y="596" width="1200" height="182" rx="16" fill="#FFFFFF" stroke="#B9CDD7" stroke-dasharray="6 5"/>
+  <text x="62" y="624" class="eyebrow">ҚОСЫМША AI ТҮСІНДІРМЕСІ · ҚАЗІР КІЛТСІЗ</text>
+  <rect x="1000" y="609" width="218" height="27" rx="13.5" fill="#F1F5F8"/>
+  <text x="1109" y="627" text-anchor="middle" font-size="12" font-weight="600" fill="#527083">Нақты API тексерілмеген</text>
+
+  <rect x="62" y="648" width="336" height="80" rx="11" fill="#F4F7FB"/>
+  <text x="79" y="678" font-size="18" font-weight="650" fill="#142D44">Фактілер + C001 белгілері</text>
+  <text x="79" y="706" class="small">gid сәйкестігі осы компьютерде</text>
+  <path d="M408 689H454" class="optional-line"/>
+
+  <rect x="464" y="648" width="306" height="80" rx="11" fill="#F4F7FB"/>
+  <text x="481" y="678" font-size="18" font-weight="650" fill="#142D44">OpenAI / NVIDIA</text>
+  <text x="481" y="706" class="small">Кілт + пайдаланушы батырмасы</text>
+  <path d="M780 689H836" class="optional-line"/>
+
+  <rect x="846" y="648" width="372" height="80" rx="11" fill="#F4F7FB"/>
+  <text x="863" y="678" font-size="18" font-weight="650" fill="#142D44">Жауапты тексеру → кэш</text>
+  <text x="863" y="706" class="small">Факт сілтемелері · жергілікті сандар</text>
+  <circle cx="70" cy="755" r="4" fill="#136F83"/>
+  <text x="84" y="760" font-size="15" font-weight="600" fill="#136F83">Кілтсіз режим: фактілер → жергілікті TXT / JSON есеп · API шақырылмайды</text>
+
+  <text x="40" y="812" font-size="14" fill="#527083">Бақыланған байланыс ≠ дәл сол қаражаттың жолы. Рөл ≠ кінәлілік.</text>
+  <text x="1240" y="812" text-anchor="end" font-size="14" font-weight="600" fill="#527083">MoneyMap / HackAlem AI</text>
+</svg>

@@ -7,7 +7,7 @@ from moneymap.graph import analyze_dataset
 from moneymap.reports import role_export_files, role_export_zip
 from moneymap.roles import classify_graph
 from moneymap.ui_graph import integer, money, safe_identifiers
-from moneymap.ui_state import clear_map_state
+from moneymap.ui_state import clear_map_state, clear_ai_state
 
 
 ROLE_LABELS = {
@@ -37,6 +37,7 @@ def render_roles_tab(validation):
         return
     if st.button("Рөлдер мен басымдықты есептеу", type="primary", key="compute_roles"):
         clear_map_state()
+        clear_ai_state()
         for key in ("role_analysis", "role_gid", "role_cluster"):
             st.session_state.pop(key, None)
         with st.spinner("Граф, кластерлер, рөлдер және тексеру кезегі есептеліп жатыр…"):

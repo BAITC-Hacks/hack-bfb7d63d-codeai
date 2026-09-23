@@ -13,7 +13,8 @@ from moneymap.demo import create_demo_frames, create_demo_zip
 from moneymap.ui_graph import render_graph_tab, safe_identifiers
 from moneymap.ui_roles import render_roles_tab
 from moneymap.ui_map import render_map_tab
-from moneymap.ui_state import clear_map_state
+from moneymap.ui_ai import render_ai_tab
+from moneymap.ui_state import clear_map_state, clear_ai_state
 
 
 st.set_page_config(
@@ -62,6 +63,7 @@ st.markdown(
 
 def clear_report():
     clear_map_state()
+    clear_ai_state()
     for key in ("validation", "source", "checked_at", "analysis", "inspect_gid", "role_analysis", "role_gid", "role_cluster", "role_filter"):
         st.session_state.pop(key, None)
 
@@ -92,15 +94,15 @@ with st.sidebar:
         <div class="step">01 &nbsp; Деректерді қабылдау ✓</div>
         <div class="step">02 &nbsp; Граф және көрсеткіштер ✓</div>
         <div class="step">03 &nbsp; Рөлдер және басымдық ✓</div>
-        <div class="step active">04 &nbsp; Карта және карточкалар</div>
-        <div class="step pending">05 &nbsp; AI көмекші</div>
-        <div class="step pending">06 &nbsp; Қорытынды тексеру</div>
+        <div class="step">04 &nbsp; Карта және карточкалар ✓</div>
+        <div class="step">05 &nbsp; AI көмекші · кілтсіз ✓</div>
+        <div class="step active">06 &nbsp; Тапсыруға дайындық ✓</div>
         """,
         unsafe_allow_html=True,
     )
     st.divider()
     st.markdown("**Жергілікті режим**")
-    st.caption("Файлдар осы компьютерде өңделеді. Бұл кезеңде сыртқы API шақырылмайды.")
+    st.caption("Граф пен есептер осы компьютерде өңделеді. AI қосылса, сұрау тек арнайы батырма арқылы таңдалған провайдерге жіберіледі.")
     st.download_button(
         "Демо файлдарын жүктеу",
         data=demo_zip(),
@@ -110,7 +112,7 @@ with st.sidebar:
     )
     st.caption("Жасанды деректер · интерфейсті сынауға арналған")
 
-st.markdown('<div class="eyebrow">ЖҰМЫС КЕҢІСТІГІ / 01–04</div>', unsafe_allow_html=True)
+st.markdown('<div class="eyebrow">ЖҰМЫС КЕҢІСТІГІ / 01–06</div>', unsafe_allow_html=True)
 st.title("Қаржылық желіні талдау")
 st.write("Кейс файлдарын тексеріп, клиенттердің байланыстарын, ықтимал рөлдерін және тексеру кезегін анықтаңыз.")
 
@@ -197,7 +199,7 @@ metrics = result.metrics
 for col, label, key in zip(st.columns(4), ["Клиенттер", "Байланыстар", "Операциялар", "Бастапқы клиенттер"], ["nodes", "edges", "transactions", "seeds"]):
     col.metric(label, number(metrics.get(key)))
 
-tabs = st.tabs(["Деректер сапасы", "Граф көрсеткіштері", "Рөлдер және басымдық", "Желі картасы", "Кестелерді қарау", "Тексеру есебі"])
+tabs = st.tabs(["Деректер сапасы", "Граф көрсеткіштері", "Рөлдер және басымдық", "Желі картасы", "AI көмекші", "Кестелерді қарау", "Тексеру есебі"])
 with tabs[0]:
     if errors:
         for issue in errors:
@@ -225,6 +227,8 @@ with tabs[2]:
 with tabs[3]:
     render_map_tab(result)
 with tabs[4]:
+    render_ai_tab(result)
+with tabs[5]:
     names = [name for name in ("nodes", "edges", "transactions") if name in result.frames]
     if names:
         table_name = st.selectbox("Кесте", names, format_func=lambda name: f"{name}.parquet")
@@ -233,7 +237,7 @@ with tabs[4]:
         st.dataframe(safe_identifiers(frame.head(100)), hide_index=True, width="stretch")
     else:
         st.info("Көрсетуге болатын кесте жоқ.")
-with tabs[5]:
+with tabs[6]:
     report = {
         "stage": 1,
         "source": {"demo": "synthetic_demo", "local_case": "local_case_files", "upload": "uploaded_files"}[st.session_state.source],

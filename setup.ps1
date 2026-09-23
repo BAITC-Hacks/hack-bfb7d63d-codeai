@@ -1,10 +1,19 @@
+param(
+    [string]$VenvDir = '.venv',
+    [string]$Wheelhouse = ''
+)
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
-$taskPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
+$taskEnvironment = [System.IO.Path]::GetFullPath($VenvDir)
+$taskPython = Join-Path $taskEnvironment 'Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $taskPython)) {
-    python -m venv .venv
+    python -m venv $taskEnvironment
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
-& $taskPython -m pip install -r requirements.txt
+$taskInstallArgs = @('-m', 'pip', 'install', '--disable-pip-version-check', '-r', (Join-Path $PSScriptRoot 'requirements.txt'))
+if ($Wheelhouse) {
+    $taskWheels = (Resolve-Path -LiteralPath $Wheelhouse).Path
+    $taskInstallArgs += @('--no-index', '--find-links', $taskWheels)
+}
+& $taskPython @taskInstallArgs
 exit $LASTEXITCODE
-

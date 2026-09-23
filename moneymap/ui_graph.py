@@ -7,7 +7,7 @@ import streamlit as st
 
 from moneymap.graph import analyze_dataset, observed_seed_paths
 from moneymap.reports import analysis_summary
-from moneymap.ui_state import clear_map_state
+from moneymap.ui_state import clear_map_state, clear_ai_state
 
 
 def safe_identifiers(frame):
@@ -35,6 +35,7 @@ def render_graph_tab(validation):
     st.write("Барлық клиенттердің бағытталған байланыстары, ақша ағыны және уақыттық белгілері.")
     if st.button("Граф көрсеткіштерін есептеу", type="primary", key="compute_graph"):
         clear_map_state()
+        clear_ai_state()
         for key in ("analysis", "role_analysis", "role_gid", "role_cluster"):
             st.session_state.pop(key, None)
         with st.spinner("Граф, бастапқы клиенттермен байланыстар және күндік көрсеткіштер есептеліп жатыр…"):
